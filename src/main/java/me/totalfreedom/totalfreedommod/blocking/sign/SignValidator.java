@@ -2,12 +2,15 @@ package me.totalfreedom.totalfreedommod.blocking.sign;
 
 import me.totalfreedom.totalfreedommod.FreedomService;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
+import me.totalfreedom.totalfreedommod.blocking.sweep.SweepContext;
+import me.totalfreedom.totalfreedommod.blocking.sweep.TileEntityVisitor;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.util.ComponentScanner;
 import me.totalfreedom.totalfreedommod.util.FLog;
 import me.totalfreedom.totalfreedommod.util.FUtil;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
@@ -25,16 +28,43 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.scheduler.BukkitTask;
 
 public class SignValidator extends FreedomService
 {
 
     private static final int LINES_PER_SIDE = 4;
-    private static final int MAX_COMPONENT_NODES = 1024;
 
     private BukkitTask sweepTask;
+
+    private final TileEntityVisitor signVisitor = new TileEntityVisitor()
+    {
+        @Override
+        public boolean enabled()
+        {
+            return sweepActive()
+                    && (signPlacementBlocked()
+                            || Boolean.TRUE.equals(ConfigEntry.CRASH_SIGNS_SCAN_CHUNK_LOAD.getBoolean()));
+        }
+
+        @Override
+        public long sweepIntervalTicks()
+        {
+            return -1L; // chunk-load only; startup + radius sweep handled locally
+        }
+
+        @Override
+        public Predicate<Block> blockFilter()
+        {
+            return b -> SignBlocks.isSignMaterial(b.getType());
+        }
+
+        @Override
+        public void visit(BlockState state, SweepContext context)
+        {
+            sweepSignState(state);
+        }
+    };
 
     public SignValidator(TotalFreedomMod plugin)
     {
@@ -46,6 +76,7 @@ public class SignValidator extends FreedomService
     {
         sweepLoadedChunks();
         scheduleProactiveSweep();
+        plugin.sweepScheduler.register(signVisitor);
     }
 
     @Override
@@ -261,29 +292,6 @@ public class SignValidator extends FreedomService
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onChunkLoad(ChunkLoadEvent event)
-    {
-        if (!sweepActive())
-        {
-            return;
-        }
-        if (!signPlacementBlocked() && !Boolean.TRUE.equals(ConfigEntry.CRASH_SIGNS_SCAN_CHUNK_LOAD.getBoolean()))
-        {
-            return;
-        }
-        if (event.isNewChunk())
-        {
-            return;
-        }
-        int removed = sweepChunk(event.getChunk(), "chunk load");
-        if (removed > 0)
-        {
-            FLog.warning("[SignValidator] Chunk-load sweep removed " + removed + " cursed sign(s) at "
-                    + event.getChunk().getX() + ", " + event.getChunk().getZ() + ".");
-        }
-    }
-
     private int sweepChunk(Chunk chunk, String context)
     {
         BlockState[] tileEntities;
@@ -298,22 +306,35 @@ public class SignValidator extends FreedomService
         int removed = 0;
         for (BlockState state : tileEntities)
         {
-            if (!(state instanceof Sign sign))
+            if (sweepSignState(state))
             {
-                continue;
-            }
-            if (signPlacementBlocked() || scanSign(sign))
-            {
-                Block block = sign.getBlock();
-                Bukkit.getScheduler().runTask(plugin, () -> removeSign(block));
                 removed++;
             }
         }
         return removed;
     }
 
+    boolean sweepSignState(BlockState state)
+    {
+        if (!(state instanceof Sign sign))
+        {
+            return false;
+        }
+        if (signPlacementBlocked() || scanSign(sign))
+        {
+            Block block = sign.getBlock();
+            Bukkit.getScheduler().runTask(plugin, () -> removeSign(block));
+            return true;
+        }
+        return false;
+    }
+
     private Sign asSign(Block block)
     {
+        if (!SignBlocks.isSignMaterial(block.getType()))
+        {
+            return null;
+        }
         BlockState state = block.getState();
         return state instanceof Sign sign ? sign : null;
     }
@@ -337,7 +358,7 @@ public class SignValidator extends FreedomService
 
     private static boolean isCursedLine(net.kyori.adventure.text.Component line)
     {
-        return ComponentScanner.isCursed(line, MAX_COMPONENT_NODES);
+        return ComponentScanner.isCursed(line, ConfigEntry.maxComponentNodes());
     }
 
     private void removeSign(Block block)

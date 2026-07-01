@@ -356,6 +356,12 @@ public enum ConfigEntry
         return TotalFreedomMod.plugin().config;
     }
 
+    /** Effective max component-graph nodes for cursed-text scanning (default 1024). */
+    public static int maxComponentNodes()
+    {
+        return CRASH_ENTITIES_MAX_COMPONENT_NODES.getInteger(1024);
+    }
+
     public static ConfigEntry findConfigEntry(String name)
     {
         name = name.toLowerCase().replace("_", "");

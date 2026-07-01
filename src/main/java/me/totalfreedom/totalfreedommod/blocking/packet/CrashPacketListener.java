@@ -1,4 +1,4 @@
-package me.totalfreedom.totalfreedommod.blocking.item;
+package me.totalfreedom.totalfreedommod.blocking.packet;
 
 import com.github.retrooper.packetevents.event.PacketListenerAbstract;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
@@ -21,6 +21,8 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerCh
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityEquipment;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetSlot;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnLivingEntity;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateAttributes;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowItems;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSetGameRule;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
@@ -28,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
+import me.totalfreedom.totalfreedommod.blocking.entity.EntityMetaPacketGuard;
 import me.totalfreedom.totalfreedommod.blocking.gamerule.GameRulePacketGuard;
 import me.totalfreedom.totalfreedommod.blocking.sign.SignPacketGuard;
 import me.totalfreedom.totalfreedommod.blocking.spawner.SpawnerPacketGuard;
@@ -37,7 +40,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-final class ItemPacketListener extends PacketListenerAbstract
+final class CrashPacketListener extends PacketListenerAbstract
 {
 
     private static final int MAX_PACKET_BYTES = 2_097_152;
@@ -48,6 +51,8 @@ final class ItemPacketListener extends PacketListenerAbstract
 
     private final TotalFreedomMod plugin;
     private final boolean sanitizeOutbound;
+    private final boolean entityMetadataGuard;
+    private final EntityMetaPacketGuard.Limits entityLimits;
     private final PacketSpamLimiter spamLimiter;
     private final MovementGuard movementGuard;
     private final boolean signBlockEntityGuard;
@@ -57,7 +62,8 @@ final class ItemPacketListener extends PacketListenerAbstract
     private final boolean spawnerChunkGuard;
     private final boolean gameRuleGuard;
 
-    ItemPacketListener(TotalFreedomMod plugin, boolean sanitizeOutbound, PacketSpamLimiter spamLimiter,
+    CrashPacketListener(TotalFreedomMod plugin, boolean sanitizeOutbound, boolean entityMetadataGuard,
+                             EntityMetaPacketGuard.Limits entityLimits, PacketSpamLimiter spamLimiter,
                              MovementGuard movementGuard, boolean signBlockEntityGuard,
                              boolean signChunkGuard, boolean blockAllSignPackets,
                              boolean spawnerBlockEntityGuard, boolean spawnerChunkGuard, boolean gameRuleGuard)
@@ -65,6 +71,8 @@ final class ItemPacketListener extends PacketListenerAbstract
         super(PacketListenerPriority.HIGH);
         this.plugin = plugin;
         this.sanitizeOutbound = sanitizeOutbound;
+        this.entityMetadataGuard = entityMetadataGuard;
+        this.entityLimits = entityLimits;
         this.spamLimiter = spamLimiter;
         this.movementGuard = movementGuard;
         this.signBlockEntityGuard = signBlockEntityGuard;
@@ -245,6 +253,25 @@ final class ItemPacketListener extends PacketListenerAbstract
         {
             final PacketTypeCommon type = event.getPacketType();
 
+            if (type == PacketType.Play.Server.ENTITY_METADATA
+                    && (sanitizeOutbound || entityMetadataGuard))
+            {
+                handleEntityMetadata(event);
+                return;
+            }
+            if (entityMetadataGuard)
+            {
+                if (type == PacketType.Play.Server.SPAWN_LIVING_ENTITY)
+                {
+                    handleSpawnLivingEntity(event);
+                    return;
+                }
+                if (type == PacketType.Play.Server.UPDATE_ATTRIBUTES)
+                {
+                    handleUpdateAttributes(event);
+                    return;
+                }
+            }
             if (sanitizeOutbound)
             {
                 if (type == PacketType.Play.Server.ENTITY_EQUIPMENT)
@@ -260,11 +287,6 @@ final class ItemPacketListener extends PacketListenerAbstract
                 if (type == PacketType.Play.Server.WINDOW_ITEMS)
                 {
                     handleWindowItems(event);
-                    return;
-                }
-                if (type == PacketType.Play.Server.ENTITY_METADATA)
-                {
-                    handleEntityMetadata(event);
                     return;
                 }
             }
@@ -309,11 +331,6 @@ final class ItemPacketListener extends PacketListenerAbstract
 
     private void handleChunkData(PacketSendEvent event)
     {
-        // Decoding and re-encoding CHUNK_DATA is what blanks cursed sign tile-entities,
-        // but it can also push an already-large chunk over the 2 MiB protocol cap and
-        // kick the client (common on 1.12.x via ViaVersion). Other guards — the block-
-        // entity packet filter, chunk-load scan, and proactive sweep — still cover these
-        // players when we skip a packet here.
         if (!safeToTouchChunkPacket(event))
         {
             return;
@@ -431,12 +448,19 @@ final class ItemPacketListener extends PacketListenerAbstract
         WrapperPlayServerEntityMetadata wrapper = new WrapperPlayServerEntityMetadata(event);
         List<EntityData<?>> metadata = wrapper.getEntityMetadata();
         boolean dirty = false;
-        for (EntityData<?> data : metadata)
+        if (sanitizeOutbound)
         {
-            if (sanitizeMetadataEntry(data))
+            for (EntityData<?> data : metadata)
             {
-                dirty = true;
+                if (sanitizeItemMetadataEntry(data))
+                {
+                    dirty = true;
+                }
             }
+        }
+        if (entityMetadataGuard && entityLimits != null)
+        {
+            dirty |= EntityMetaPacketGuard.sanitizeMetadata(metadata, entityLimits);
         }
         if (dirty)
         {
@@ -445,8 +469,49 @@ final class ItemPacketListener extends PacketListenerAbstract
         }
     }
 
+    private void handleSpawnLivingEntity(PacketSendEvent event)
+    {
+        WrapperPlayServerSpawnLivingEntity wrapper = new WrapperPlayServerSpawnLivingEntity(event);
+        List<EntityData<?>> metadata = wrapper.getEntityMetadata();
+        boolean dirty = false;
+        if (sanitizeOutbound)
+        {
+            for (EntityData<?> data : metadata)
+            {
+                if (sanitizeItemMetadataEntry(data))
+                {
+                    dirty = true;
+                }
+            }
+        }
+        if (entityLimits != null)
+        {
+            dirty |= EntityMetaPacketGuard.sanitizeMetadata(metadata, entityLimits);
+        }
+        if (dirty)
+        {
+            wrapper.setEntityMetadata(metadata);
+            event.markForReEncode(true);
+        }
+    }
+
+    private void handleUpdateAttributes(PacketSendEvent event)
+    {
+        if (entityLimits == null || entityLimits.maxScale() <= 0.0)
+        {
+            return;
+        }
+        WrapperPlayServerUpdateAttributes wrapper = new WrapperPlayServerUpdateAttributes(event);
+        List<WrapperPlayServerUpdateAttributes.Property> properties = wrapper.getProperties();
+        if (EntityMetaPacketGuard.sanitizeAttributes(properties, entityLimits.maxScale()))
+        {
+            wrapper.setProperties(properties);
+            event.markForReEncode(true);
+        }
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private boolean sanitizeMetadataEntry(EntityData<?> data)
+    private boolean sanitizeItemMetadataEntry(EntityData<?> data)
     {
         Object value = data.getValue();
         if (value instanceof com.github.retrooper.packetevents.protocol.item.ItemStack peItem)
