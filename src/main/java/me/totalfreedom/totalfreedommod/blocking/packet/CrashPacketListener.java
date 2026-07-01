@@ -10,6 +10,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.Equipment;
+import com.github.retrooper.packetevents.protocol.recipe.data.MerchantOffer;
 import com.github.retrooper.packetevents.protocol.world.chunk.Column;
 import com.github.retrooper.packetevents.util.Vector3d;
 import io.netty.buffer.ByteBuf;
@@ -23,15 +24,18 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetSlot;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnLivingEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateAttributes;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMerchantOffers;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowItems;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSetGameRule;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.blocking.entity.EntityMetaPacketGuard;
 import me.totalfreedom.totalfreedommod.blocking.gamerule.GameRulePacketGuard;
+import me.totalfreedom.totalfreedommod.blocking.item.ContainerPacketGuard;
 import me.totalfreedom.totalfreedommod.blocking.sign.SignPacketGuard;
 import me.totalfreedom.totalfreedommod.blocking.spawner.SpawnerPacketGuard;
 import me.totalfreedom.totalfreedommod.util.FLog;
@@ -60,13 +64,16 @@ final class CrashPacketListener extends PacketListenerAbstract
     private final boolean blockAllSignPackets;
     private final boolean spawnerBlockEntityGuard;
     private final boolean spawnerChunkGuard;
+    private final boolean containerBlockEntityGuard;
+    private final boolean containerChunkGuard;
     private final boolean gameRuleGuard;
 
     CrashPacketListener(TotalFreedomMod plugin, boolean sanitizeOutbound, boolean entityMetadataGuard,
                              EntityMetaPacketGuard.Limits entityLimits, PacketSpamLimiter spamLimiter,
                              MovementGuard movementGuard, boolean signBlockEntityGuard,
                              boolean signChunkGuard, boolean blockAllSignPackets,
-                             boolean spawnerBlockEntityGuard, boolean spawnerChunkGuard, boolean gameRuleGuard)
+                             boolean spawnerBlockEntityGuard, boolean spawnerChunkGuard,
+                             boolean containerBlockEntityGuard, boolean containerChunkGuard, boolean gameRuleGuard)
     {
         super(PacketListenerPriority.HIGH);
         this.plugin = plugin;
@@ -80,6 +87,8 @@ final class CrashPacketListener extends PacketListenerAbstract
         this.blockAllSignPackets = blockAllSignPackets;
         this.spawnerBlockEntityGuard = spawnerBlockEntityGuard;
         this.spawnerChunkGuard = spawnerChunkGuard;
+        this.containerBlockEntityGuard = containerBlockEntityGuard;
+        this.containerChunkGuard = containerChunkGuard;
         this.gameRuleGuard = gameRuleGuard;
     }
 
@@ -289,14 +298,19 @@ final class CrashPacketListener extends PacketListenerAbstract
                     handleWindowItems(event);
                     return;
                 }
+                if (type == PacketType.Play.Server.MERCHANT_OFFERS)
+                {
+                    handleMerchantOffers(event);
+                    return;
+                }
             }
 
-            if ((blockAllSignPackets || signBlockEntityGuard || spawnerBlockEntityGuard)
+            if ((blockAllSignPackets || signBlockEntityGuard || spawnerBlockEntityGuard || containerBlockEntityGuard)
                     && type == PacketType.Play.Server.BLOCK_ENTITY_DATA)
             {
                 handleBlockEntityData(event);
             }
-            else if ((blockAllSignPackets || signChunkGuard || spawnerChunkGuard)
+            else if ((blockAllSignPackets || signChunkGuard || spawnerChunkGuard || containerChunkGuard)
                     && type == PacketType.Play.Server.CHUNK_DATA)
             {
                 handleChunkData(event);
@@ -326,6 +340,14 @@ final class CrashPacketListener extends PacketListenerAbstract
                 && SpawnerPacketGuard.isUnsafe(nbt))
         {
             event.setCancelled(true);
+            return;
+        }
+
+        if (containerBlockEntityGuard
+                && ContainerPacketGuard.isItemBearingBlockEntity(nbt)
+                && ContainerPacketGuard.isUnsafe(nbt))
+        {
+            event.setCancelled(true);
         }
     }
 
@@ -352,6 +374,11 @@ final class CrashPacketListener extends PacketListenerAbstract
         if (spawnerChunkGuard)
         {
             dirty |= SpawnerPacketGuard.sanitizeColumn(column) > 0;
+        }
+
+        if (containerChunkGuard)
+        {
+            dirty |= ContainerPacketGuard.sanitizeColumn(column) > 0;
         }
 
         if (dirty)
@@ -439,6 +466,31 @@ final class CrashPacketListener extends PacketListenerAbstract
 
         if (dirty)
         {
+            event.markForReEncode(true);
+        }
+    }
+
+    private void handleMerchantOffers(PacketSendEvent event)
+    {
+        WrapperPlayServerMerchantOffers wrapper = new WrapperPlayServerMerchantOffers(event);
+        List<MerchantOffer> offers = wrapper.getMerchantOffers();
+        List<MerchantOffer> safe = new ArrayList<>(offers.size());
+        boolean dirty = false;
+        for (MerchantOffer offer : offers)
+        {
+            if (offer != null
+                    && (isCursed(offer.getFirstInputItem())
+                    || isCursed(offer.getSecondInputItem())
+                    || isCursed(offer.getOutputItem())))
+            {
+                dirty = true;
+                continue;
+            }
+            safe.add(offer);
+        }
+        if (dirty)
+        {
+            wrapper.setMerchantOffers(safe);
             event.markForReEncode(true);
         }
     }

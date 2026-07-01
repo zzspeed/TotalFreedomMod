@@ -53,6 +53,7 @@ public class ItemValidator extends FreedomService
     private static final long CLICK_SCAN_BUDGET_NANOS = 3_000_000L;
     private static final long CHUNK_ITEM_SCAN_BUDGET_NANOS = 2_000_000L;
     private static final long SWEEP_ITEM_SCAN_BUDGET_NANOS = 2_000_000L;
+    private static final long CONTAINER_SCAN_BUDGET_NANOS = 10_000_000L;
 
     private volatile boolean panicMode;
     private volatile int maxPotionEffects = DEFAULT_MAX_POTION_EFFECTS;
@@ -246,6 +247,15 @@ public class ItemValidator extends FreedomService
         return ItemScanner.scan(item, panicMode, maxPotionEffects, System.nanoTime() + budgetNanos);
     }
 
+    private ItemScanner.Verdict scanUntil(ItemStack item, long deadlineNanos)
+    {
+        if (item == null || item.isEmpty())
+        {
+            return scan(item);
+        }
+        return ItemScanner.scan(item, panicMode, maxPotionEffects, deadlineNanos);
+    }
+
     private ItemScanner.Verdict scanInventory(Inventory inv)
     {
         return scanInventory(inv, CHUNK_ITEM_SCAN_BUDGET_NANOS);
@@ -289,6 +299,7 @@ public class ItemValidator extends FreedomService
         }
 
         ItemStack[] contents = inv.getContents();
+        long containerDeadline = System.nanoTime() + CONTAINER_SCAN_BUDGET_NANOS;
         boolean purged = false;
         for (int i = 0; i < contents.length; i++)
         {
@@ -297,7 +308,8 @@ public class ItemValidator extends FreedomService
             {
                 continue;
             }
-            ItemScanner.Verdict v = scanWithBudget(item, CHUNK_ITEM_SCAN_BUDGET_NANOS);
+            long itemDeadline = Math.min(System.nanoTime() + CHUNK_ITEM_SCAN_BUDGET_NANOS, containerDeadline);
+            ItemScanner.Verdict v = scanUntil(item, itemDeadline);
             if (!v.isCursed())
             {
                 continue;
