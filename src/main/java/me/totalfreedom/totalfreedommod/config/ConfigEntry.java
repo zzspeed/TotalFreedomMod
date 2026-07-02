@@ -112,6 +112,8 @@ public enum ConfigEntry
     WORLDEDIT_THROTTLE_MAX_OPS(Integer.class, "worldedit.throttle.max_operations"),
     WORLDEDIT_THROTTLE_TIME_WINDOW(Integer.class, "worldedit.throttle.time_window"),
     WORLDEDIT_THROTTLE_MAX_CANCELLED_OPS(Integer.class, "worldedit.throttle.max_cancelled_operations"),
+    WORLDEDIT_MAX_CONTAINERS(Integer.class, "worldedit.max_containers"),
+    WORLDEDIT_MAX_SCHEM_SAVE_KB(Integer.class, "worldedit.max_schem_save_kb"),
     //
     NUKE_MONITOR_ENABLED(Boolean.class, "nukemonitor.enabled"),
     NUKE_MONITOR_COUNT_BREAK(Integer.class, "nukemonitor.count_break"),

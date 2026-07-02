@@ -551,6 +551,20 @@ worldedit:
   - 'nether_portal'
   - 'end_portal'
   - 'end_gateway'
+  - beacon
+  - observer
+  - dispenser
+  - bell
+  - note_block
+  - '#clipboard'
+
+  # Maximum number of container blocks (e.g. chests, shulkers, hoppers...) that an
+  # operator may place in a single WorldEdit operation. Set to -1 for no limit.
+  max_containers: 500
+
+  # Maximum size of a schematic file in kilobytes that an operator may save.
+  # Set to -1 for no limit.
+  max_schem_save_kb: 2048
 
 # Host senders — binds automated services or host-based consoles to an admin rank.
 #
