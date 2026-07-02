@@ -290,6 +290,36 @@ crash_items:
   # a crash item. 0 disables.
   max_potion_effects: 24
 
+# ContainerPacketGuard
+# Removes unwanted items from item-bearing title entities that can be delivered
+# to clients in order to crash them.  Regular chest/shulkers are already handled
+# by the item packet guard.
+crash_containers:
+  # Whether to scan outbound packets. Requires packetevents.
+  packet_guard: true
+  # The same for tile entities embedded in outbound chunk packets. Also requires
+  # packetevents. Disable this if you see too much compute usage on player join.
+  chunk_guard: true
+  # Strip cursed items from container block entities when a chunk loads and during
+  # startup for already loaded chunks.
+  scan_chunk_load: true
+  # Controls how strict the policy is for sweeping containers that are detected.
+  # This primarily targets items that contain data which can lag the server.
+  #
+  # 1. filter (removes only the offending slots), 2. clear (empties the whole
+  # container), or 3. destroy (removes the container block entirely).
+  #
+  # Filtering slots is expensive and discouraged. It is recommended to destroy
+  # containers when they are being intentionally used to strain the server.
+  sweep_mode: clear
+  # Proactive sweep (in ticks, 20 = 1s) of chunks around every player to check
+  # for offending container block entities. 0 disables.
+  sweep_ticks: 40
+  # Chunk radius around each player to include in the proactive sweep. 4 covers
+  # roughly the player's immediate view; raise for a larger blast radius at some
+  # CPU cost. Chunks are de-duplicated across players each pass.
+  sweep_radius: 4
+
 # SpawnerValidator
 # For detecting spawners that are used to crash or otherwise lock up the client.
 crash_spawners:

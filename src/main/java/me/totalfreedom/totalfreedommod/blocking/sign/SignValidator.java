@@ -143,7 +143,7 @@ public class SignValidator extends FreedomService
         }
         if (removed > 0)
         {
-            FLog.warning("[SignValidator] Periodic sweep removed " + removed + " cursed sign(s).");
+            FLog.warning("[SignValidator] Periodic sweep removed " + removed + " cursed sign(s).", true);
         }
     }
 
@@ -166,7 +166,7 @@ public class SignValidator extends FreedomService
         if (removed > 0)
         {
             FLog.warning("[SignValidator] Startup sweep removed " + removed
-                    + " cursed sign(s) across " + chunks + " loaded chunk(s).");
+                    + " cursed sign(s) across " + chunks + " loaded chunk(s).", true);
         }
     }
 
@@ -216,7 +216,7 @@ public class SignValidator extends FreedomService
                     "One or more sign lines contained malicious component data; the sign was removed.",
                     NamedTextColor.RED);
             FLog.warning("[SignValidator] Removed cursed sign edit by " + event.getPlayer().getName()
-                    + " at " + FUtil.formatLocation(block.getLocation()));
+                    + " at " + FUtil.formatLocation(block.getLocation()), true);
             Bukkit.getScheduler().runTask(plugin, () -> removeSign(block));
         }
     }
@@ -244,7 +244,7 @@ public class SignValidator extends FreedomService
             removeSign(block);
             FUtil.playerMsg(event.getPlayer(), "That sign was cursed; it has been removed.", NamedTextColor.RED);
             FLog.warning("[SignValidator] Cursed sign interacted with at "
-                    + FUtil.formatLocation(block.getLocation()) + " — removed in place.");
+                    + FUtil.formatLocation(block.getLocation()) + " — removed in place.", true);
         }
     }
 
@@ -266,7 +266,7 @@ public class SignValidator extends FreedomService
             event.setCancelled(true);
             FUtil.playerMsg(event.getPlayer(), "That sign was cursed; it has been removed.", NamedTextColor.RED);
             FLog.warning("[SignValidator] Cursed sign placed by " + event.getPlayer().getName()
-                    + " at " + FUtil.formatLocation(placed.getLocation()) + " — placement blocked and removed.");
+                    + " at " + FUtil.formatLocation(placed.getLocation()) + " — placement blocked and removed.", true);
             Bukkit.getScheduler().runTask(plugin, () -> removeSign(placed));
         }
     }
@@ -288,7 +288,7 @@ public class SignValidator extends FreedomService
         {
             removeSign(block);
             FLog.warning("[SignValidator] Cursed sign broken by " + event.getPlayer().getName()
-                    + " at " + FUtil.formatLocation(block.getLocation()) + " — removed in place before the break.");
+                    + " at " + FUtil.formatLocation(block.getLocation()) + " — removed in place before the break.", true);
         }
     }
 

@@ -145,6 +145,13 @@ public enum ConfigEntry
     CRASH_ITEMS_HIDE_CONSOLE_SPAM(Boolean.class, "crash_items.hide_console_spam"),
     CRASH_ITEMS_MAX_POTION_EFFECTS(Integer.class, "crash_items.max_potion_effects"),
     //
+    CRASH_CONTAINERS_SCAN_CHUNK_LOAD(Boolean.class, "crash_containers.scan_chunk_load"),
+    CRASH_CONTAINERS_SWEEP_MODE(String.class, "crash_containers.sweep_mode"),
+    CRASH_CONTAINERS_SWEEP_TICKS(Integer.class, "crash_containers.sweep_ticks"),
+    CRASH_CONTAINERS_SWEEP_RADIUS(Integer.class, "crash_containers.sweep_radius"),
+    CRASH_CONTAINERS_PACKET_GUARD(Boolean.class, "crash_containers.packet_guard"),
+    CRASH_CONTAINERS_CHUNK_GUARD(Boolean.class, "crash_containers.chunk_guard"),
+    //
     CRASH_SPAWNERS_PREVENT(Boolean.class, "crash_spawners.prevent"),
     CRASH_SPAWNERS_PACKET_GUARD(Boolean.class, "crash_spawners.packet_guard"),
     CRASH_SPAWNERS_CHUNK_GUARD(Boolean.class, "crash_spawners.chunk_guard"),
