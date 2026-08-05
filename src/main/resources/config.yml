@@ -1,4 +1,4 @@
-#
+# CAN YOU FUCKING CHILL OUT @luke560
 # TotalFreedomMod 5.0 Configuration
 # by Madgeek1450 and Prozza
 #
@@ -115,60 +115,88 @@ allow:
 #   - 's:b:/give {?} bedrock {*}:_'# block "/give <player> bedrock <anything>"
 #
 blocked_commands:
-    # Disabled commands
+  # Disabled commands
   - 'n:b:/time:Server-side time changing is disabled. Please use /ptime to set your own personal time.'
   - 'n:b:/ban:_'
   - 'n:b:/pardon:_'
   - 'n:b:/ban-ip:_'
+  - 'n:b:/viaversion debug:_'
   - 'n:b:/pardon-ip:_'
   - 'n:b:/toggledownfall:_'
   - 'n:b:/effect:Please use /potion to set effects.'
-  - 'n:b:/enderchest:_'
   - 'n:b:/spreadplayers:_'
   - 'n:b:/execute:_'
+  - 'n:b:/emf:_'
   - 'n:b:/blockdata:_'
   - 'n:b:/clearhistory:_'
   - 'n:b:/save-on:_'
   - 'n:b:/save-off:_'
-  - 'n:b:/playsound:_'
+  - 'n:b:/skin set:_'
+  - 'n:b:/calculate:_'
+  - 'n:b:/clone:_'
   - 'n:b:/skinrestorer:_'
+  - 'n:b:/testfor:_'
+  - 'n:b:/testforblock:_'
+  - 'n:b:/testforblocks:_'
   - 'n:b:/packet:_'
-  - 'n:b:/packetlog:_'
-  - 'n:b:/filter:_'
-  - 'n:b:/protocol:_'
+
   - 'n:b:/thaw:_'
-  - 'n:b:/pp largeexplode:You may not use this particle! Please use another.'
-  - 'n:b:/pp hugeexplosion:You may not use this particle! Please use another.'
-  - 'n:b:/pp barrier:You may not use this particle! Please use another.'
+  - 'n:b:/spawnmob:_'
   - 'n:b:/setjail:_'
-  - 'n:b:/tfbanlist:Use /banlist to see and wipe the ban list'
-  - 'n:b:/tfipbanlist:Use /banlist to see and wipe the ban list'
 
   # Superadmin commands
   - 's:b:/save-all:_'
+  - 's:b:/summon:Do to security reasons, the use of /summon has been disabled.'
+  - 's:b:/particle:Do to security reasons, the use of /particle has been disabled.'
+  - 's:b:/rainbowclear:_'
+  - 's:b:/rainbowspeed:_'
   - 's:b:/kick:_'
+  - 's:b:/difficulty:_'
+  - 's:b://count:_'
+  - 's:b:/capatchafy:_'
+  - 's:b:/enderchest:_'
+  - 's:b:/limit:_'
   - 's:b:/socialspy:_'
+  - 's:b:/sproxy:_'
   - 's:b:/replaceitem:_'
+  - 's:b:/calculate:_'
   - 's:b:/kill:_'
   - 's:b://generate:_'
+  - 's:b://undentity:_'
   - 's:b://:_'
   - 's:b:/superpickaxe:_'
-  - 's:b:/brush:_'
-  - 's:b:/size:_'
+  - 's:b://setbiome hell:_'
+  - 's:b:/arp:_'
+  - 's:b:/bcr:_'
+  - 's:b:/setworldspawn:_'
+  - 's:b:/removebelow:_'
+  - 's:b://size:_'
   - 's:b://mask:_'
   - 's:b:/mat:_'
   - 's:b://butcher:_'
   - 's:b:/scoreboard:_'
   - 's:b:/setspawn:_'
+  - 's:b:/repl:_'
+  - 's:b:/replacenear:_'
   - 's:b://snow:_'
   - 's:b:/tellraw:_'
   - 's:b:/forestgen:_'
   - 's:b:/setidletimeout:_'
-  - 's:b:/mail sendall:_'
+  - 'n:b:/mail sendall:_'
+  - 's:b:/schematic d:_'
+  - 's:b:/pos2:you need to type //wand to make worldedit area.'
+  - 's:b:/pos1:you need to type //wand to make worldedit area.'
   - 's:b:/eco reset:_'
   - 's:b:/mask:_'
   - 's:b:/gmask:_'
+  - 's:b:/mob:_'
   - 's:b:/lrbuild:_'
+  - 's:b:/brush:_'
+  - 's:b:/co:_'
+  - 's:b:/core:_'
+  - 's:b:/coreprotect:_'
+  - 's:b:/size:_'
+  - 's:b:/break:_'  
   - 's:b:/defaultgamemode:_'
   - 's:b:/reload:_'
   - 's:b:/title:_'
@@ -179,8 +207,16 @@ blocked_commands:
   - 's:b:/green:_'
   - 's:b:/gamerule:_'
   - 's:b:/togglejail:_'
+  - 's:b:/lagg:_'
   - 's:b:/fill:_'
-  - 's:b:/flood:_'
+  - 's:b:/tool:_'
+  - 's:b:/floodfill:_'
+  - 's:b:/range:_'
+  - 's:b:/viaversion:_'
+  - 's:b:/killall:_'
+  - 's:b:/tpo:_'
+  - 's:b:/tpohere:_'
+  - 's:b:/tphere:_'
 
   # Superadmin commands - Auto-eject
   - 's:a:/stop:_'
@@ -655,7 +691,7 @@ announcer:
     - 'Be sure to visit our forums at &6http://totalfreedom.boards.net/'
     - 'You can always review the server rules here: &6http://totalfreedom.me/'
     - 'If you are not OP, be sure to ask!'
-    - 'Somebody breaking the rules? Report it! /report <user> <reason>'
+    - 'Somebody breaking the rules? Report it! /report &6<user>&r &c<reason>&r'
     - 'Griefing is not allowed!'
     - 'Hacked clients are allowed!'
     - 'Interested in becoming admin? Do "/ai" for more information!'
@@ -673,7 +709,7 @@ announcer:
     - 'Serial griefing and trolling will result in a permanent ban!'
     - 'TotalFreedom does not accept any form of donations!'
     - 'Racism, nazism, and sexism are strictly forbidden!'
-    - 'Join our Mumble server! IP: 64.34.202.140:2862'
+    - 'Join our Discord server! discord.gg/Zj9aUaR'
 
 # What to display in the admininfo command.
 admininfo:
@@ -723,7 +759,6 @@ famous_players:
   - stampylongnose
   - dantdm
   - gizzy14gazza
-  - furiousdestroyer
 
 # IPs that can not be supered
 noadmin_ips:
@@ -819,127 +854,6 @@ autokick:
   # Time, in seconds, after which a player should be kicked when inactive
   time: 120
 
-# Auto-Op - Automatically op players who join without op
-auto_op:
-  enabled: true
-
-  # Enable persistent monitoring to re-OP players who lose OP status
-  persistent_monitor: false
-
-  # Interval in ticks (20 ticks = 1 second) for persistent monitor to check players
-  monitor_interval: 300
-
-# Spawn manager (used in lieu of EssentialsSpawn)
-spawn:
-  world: flatlands
-  x: 0.0
-  y: 0.0
-  z: 0.0
-  yaw: 0.0
-  pitch: 0.0
-  send_player:
-    # Valid options: always, first_join, never
-    on_join: first_join
-    on_respawn: true
-
-# Chat formatting settings
-# TotalFreedomMod can act as a chat plugin on its own and will display prefixes/custom tags, but it should cooperate with existing chat plugins as well.
-chat:
-  provider:
-    # When enabled, the plugin will register itself as the chat provider to be used by plugins such as Essentials.
-    # This functionality requires the Vault API.
-    enabled: true
-    
-    # Whether to try and override an already-existing Vault chat provider (e.g. LuckPerms)
-    override_existing: false
-  
-  format:
-    # Tag format template (space is included in default value)
-    # {TAG} will be replaced with the actual tag value
-    tag: "&7{TAG} "
-    # Chat message format template with placeholders
-    # Keep in mind that this syntax will be ignored if you are using a chat plugin like EssentialsChat!
-    # Available placeholders:
-    #   {PREFIX} - Player's rank prefix (includes tag if present, based on enforce_prefix setting)
-    #   {DISPLAYNAME} - Player's display name
-    #   {STRIKES} - Number of strikes indicated by asterisks (visible only to admins)
-    #   {MESSAGE} - The chat message
-    #   {WORLD} - World name
-    message: "{PREFIX}&8<&r{DISPLAYNAME}&c{STRIKES}&8>&r {MESSAGE}"
-  
-  behavior:
-    # Shows a player's rank prefix next to their custom tag (otherwise the tag will replace it)
-    enforce_prefix: false
-    # Automatically converts messages with capitals in them to lowercase
-    no_caps:
-      enabled: true
-      # Percentage of capital letters required to trigger no_caps (integer of 0-100)
-      caps_ratio: 65
-    # Sends a message to a player if their message is the same as their previous one
-    prevent_spam: true
-    # Allow colors in chat: legacy & codes (0-9, a-f), hex (&#rrggbb), and the
-    # MiniMessage equivalents including <#rrggbb>, <gradient:..> and <rainbow>.
-    allow_color_formatting: false
-    # Allow decorations in chat: legacy & codes (l,m,k,o,n,r) and the MiniMessage
-    # equivalents (<bold>, <italic>, <underlined>, <strikethrough>, <obfuscated>).
-    allow_special_formatting: false
-    # Maximum length in characters that a message can be (the current game limit is 256)
-    max_message_length: 256
-    # Notifies a player when their message is truncated in length
-    notify_truncated: true
-
-# Tab list
-tablist:
-  enabled: true
-
-  # Every word in the header/footer will be a different color unless prefixed by a
-  # color code, excluding whitespace.
-  colorful_tablist: false
-
-  # How much time in seconds before the colors change (requires colorful_tablist).
-  change_colors: 3
-
-  # Text displayed above the player list.
-  # Supports & color codes. Use | for multiline (YAML block scalar).
-  header: ""
-
-  # Text displayed below the player list. Supports color and multiline.
-  footer: ""
-
-  # Layout style. Options:
-  #   DYNAMIC_SIZE - Standard Minecraft behavior; all online players are listed.
-  #   FIXED_SIZE   - A fixed number of slots are reserved (see 'size' and 'columns' below).
-  type: DYNAMIC_SIZE
-
-  # (FIXED_SIZE) Total number of tab list slots.
-  size: 60
-
-  # (FIXED_SIZE) Number of columns (1-4).
-  columns: 3
-
-  # Template used to format each player's name in the tab list.
-  # Placeholders:
-  #   ${prefix}       - Player's rank prefix / custom tag (mirrors {PREFIX} in chat.format.message,
-  #                     including enforce_prefix and /tag behavior)
-  #   ${name}         - Player's real username
-  #   ${display_name} - Player's display name: nickname (if set via Essentials), otherwise the real
-  #                     username. When a nickname is set, display_nickname_prefix is automatically
-  #                     prepended.
-  #   ${afk_tag}      - Replaced with the afk_tag value below when the player is AFK; empty otherwise
-  player_component: "${afk_tag}${prefix}${display_name}"
-
-  # Text value for ${afk_tag} when the player is AFK (requires EssentialsX).
-  afk_tag: " &7[AFK]"
-
-  # How often (in ticks) the header, footer, and player names are refreshed.
-  # 20 ticks = 1 second.  Default is every 3 seconds.
-  update_interval: 60
-
-# GameRuleHandler
-# Controls game rules on a global scale and regulates which players can and can't change gamerules
-gamerules:
-  # Controls whether to change game rules and enforce defaults listed in this configuration
-  enabled: true
 
   # Interval in ticks between enforcement periods
   enforcement_interval: 600
