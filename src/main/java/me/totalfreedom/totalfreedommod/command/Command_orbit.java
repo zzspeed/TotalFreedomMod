@@ -3,14 +3,14 @@ package me.totalfreedom.totalfreedommod.command;
 import me.totalfreedom.totalfreedommod.player.FPlayer;
 import me.totalfreedom.totalfreedommod.rank.Rank;
 import me.totalfreedom.totalfreedommod.util.FUtil;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.GameMode;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
-@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH)
+@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH, permission = "tfm.fun.orbit")
 @CommandParameters(description = "POW!!! Right in the kisser! One of these days Alice, straight to the Moon!",
         usage = "/<command> <target> [<<power> | stop>]")
 public class Command_orbit extends FreedomCommand
@@ -28,7 +28,7 @@ public class Command_orbit extends FreedomCommand
 
         if (player == null)
         {
-            msg(FreedomCommand.PLAYER_NOT_FOUND, ChatColor.RED);
+            msg(FreedomCommand.PLAYER_NOT_FOUND);
             return true;
         }
 
@@ -51,7 +51,7 @@ public class Command_orbit extends FreedomCommand
             }
             catch (NumberFormatException ex)
             {
-                msg(ex.getMessage(), ChatColor.RED);
+                msg(ex.getMessage(), NamedTextColor.RED);
                 return true;
             }
         }

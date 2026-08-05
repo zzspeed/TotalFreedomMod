@@ -31,12 +31,12 @@ public class Announcer extends FreedomService
     {
         enabled = ConfigEntry.ANNOUNCER_ENABLED.getBoolean();
         interval = ConfigEntry.ANNOUNCER_INTERVAL.getInteger() * 20L;
-        prefix = FUtil.colorize(ConfigEntry.ANNOUNCER_PREFIX.getString());
+        prefix = ConfigEntry.ANNOUNCER_PREFIX.getString();
 
         announcements.clear();
         for (Object announcement : ConfigEntry.ANNOUNCER_ANNOUNCEMENTS.getList())
         {
-            announcements.add(FUtil.colorize((String) announcement));
+            announcements.add((String) announcement);
         }
 
         if (!enabled)

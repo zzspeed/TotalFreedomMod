@@ -2,15 +2,21 @@ package me.totalfreedom.totalfreedommod.blocking;
 
 import me.totalfreedom.totalfreedommod.FreedomService;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
+import me.totalfreedom.totalfreedommod.blocking.sign.SignBlocks;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.util.FLog;
 import me.totalfreedom.totalfreedommod.util.FUtil;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.inventory.ItemStack;
 
 public class BlockBlocker extends FreedomService
@@ -36,10 +42,21 @@ public class BlockBlocker extends FreedomService
     {
         final Player player = event.getPlayer();
 
+        if (SignBlocks.isSignBlock(event.getBlockPlaced()))
+        {
+            if (signPlacementBlocked())
+            {
+                player.getInventory().setItem(player.getInventory().getHeldItemSlot(), new ItemStack(Material.COOKIE, 1));
+                player.sendMessage(Component.text("Sign placement is currently disabled.", NamedTextColor.GRAY));
+
+                event.setCancelled(true);
+            }
+            return;
+        }
+
         switch (event.getBlockPlaced().getType())
         {
             case LAVA:
-            case STATIONARY_LAVA:
             {
                 if (ConfigEntry.ALLOW_LAVA_PLACE.getBoolean())
                 {
@@ -50,14 +67,13 @@ public class BlockBlocker extends FreedomService
                 else
                 {
                     player.getInventory().setItem(player.getInventory().getHeldItemSlot(), new ItemStack(Material.COOKIE, 1));
-                    player.sendMessage(ChatColor.GRAY + "Lava placement is currently disabled.");
+                    player.sendMessage(Component.text("Lava placement is currently disabled.", NamedTextColor.GRAY));
 
                     event.setCancelled(true);
                 }
                 break;
             }
             case WATER:
-            case STATIONARY_WATER:
             {
                 if (ConfigEntry.ALLOW_WATER_PLACE.getBoolean())
                 {
@@ -68,7 +84,7 @@ public class BlockBlocker extends FreedomService
                 else
                 {
                     player.getInventory().setItem(player.getInventory().getHeldItemSlot(), new ItemStack(Material.COOKIE, 1));
-                    player.sendMessage(ChatColor.GRAY + "Water placement is currently disabled.");
+                    player.sendMessage(Component.text("Water placement is currently disabled.", NamedTextColor.GRAY));
 
                     event.setCancelled(true);
                 }
@@ -85,7 +101,7 @@ public class BlockBlocker extends FreedomService
                 else
                 {
                     player.getInventory().setItem(player.getInventory().getHeldItemSlot(), new ItemStack(Material.COOKIE, 1));
-                    player.sendMessage(ChatColor.GRAY + "Fire placement is currently disabled.");
+                    player.sendMessage(Component.text("Fire placement is currently disabled.", NamedTextColor.GRAY));
 
                     event.setCancelled(true);
                 }
@@ -103,7 +119,17 @@ public class BlockBlocker extends FreedomService
                 {
                     player.getInventory().setItem(player.getInventory().getHeldItemSlot(), new ItemStack(Material.COOKIE, 1));
 
-                    player.sendMessage(ChatColor.GRAY + "TNT is currently disabled.");
+                    player.sendMessage(Component.text("TNT is currently disabled.", NamedTextColor.GRAY));
+                    event.setCancelled(true);
+                }
+                break;
+            }
+            case SPAWNER:
+            {
+                if (ConfigEntry.DISABLE_SPAWNER_PLACE.getBoolean())
+                {
+                    player.sendMessage(Component.text("Spawners are currently disabled.", NamedTextColor.GRAY));
+
                     event.setCancelled(true);
                 }
                 break;
@@ -111,12 +137,69 @@ public class BlockBlocker extends FreedomService
             case STRUCTURE_BLOCK:
             case STRUCTURE_VOID:
             {
-                player.sendMessage(ChatColor.GRAY + "Structure blocks are disabled.");
+                player.sendMessage(Component.text("Structure blocks are disabled.", NamedTextColor.GRAY));
 
                 event.setCancelled(true);
                 break;
             }
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEntitySpawn(EntitySpawnEvent event)
+    {
+        if (!(event.getEntity() instanceof FallingBlock falling))
+        {
+            return;
+        }
+
+        if (fallingBlocksBlocked())
+        {
+            event.setCancelled(true);
+            return;
+        }
+
+        if (fallingSignsBlocked() && SignBlocks.isSignMaterial(falling.getBlockData().getMaterial()))
+        {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEntityChangeBlock(EntityChangeBlockEvent event)
+    {
+        if (!(event.getEntity() instanceof FallingBlock))
+        {
+            return;
+        }
+
+        if (fallingBlocksBlocked())
+        {
+            event.setCancelled(true);
+            event.getEntity().remove();
+            return;
+        }
+
+        if (fallingSignsBlocked() && SignBlocks.isSignBlock(event.getBlock()))
+        {
+            event.setCancelled(true);
+            event.getEntity().remove();
+        }
+    }
+
+    private boolean signPlacementBlocked()
+    {
+        return Boolean.FALSE.equals(ConfigEntry.ALLOW_SIGN_PLACE.getBoolean());
+    }
+
+    private boolean fallingSignsBlocked()
+    {
+        return Boolean.FALSE.equals(ConfigEntry.ALLOW_FALLING_SIGNS.getBoolean());
+    }
+
+    private boolean fallingBlocksBlocked()
+    {
+        return Boolean.FALSE.equals(ConfigEntry.ALLOW_FALLING_BLOCKS.getBoolean());
     }
 
 }

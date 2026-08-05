@@ -9,7 +9,7 @@ import java.util.EnumMap;
 import java.util.List;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.util.FLog;
-import net.pravian.aero.component.PluginComponent;
+import me.totalfreedom.totalfreedommod.framework.PluginComponent;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -64,9 +64,11 @@ public class MainConfig extends PluginComponent<TotalFreedomMod>
         try
         {
             YamlConfiguration config = new YamlConfiguration();
+            File configFile = getConfigFile();
 
-            config.load(getConfigFile());
+            config.load(configFile);
 
+            boolean needsSave = false;
             for (ConfigEntry entry : ConfigEntry.values())
             {
                 String path = entry.getConfigName();
@@ -85,8 +87,19 @@ public class MainConfig extends PluginComponent<TotalFreedomMod>
                 }
                 else
                 {
-                    FLog.warning("Missing configuration entry " + entry.getConfigName() + ". Using default value.");
+                    Object defaultValue = defaults != null ? defaults.get(path) : null;
+                    if (defaultValue != null)
+                    {
+                        config.set(path, defaultValue);
+                        entries.put(entry, defaultValue);
+                        needsSave = true;
+                    }
                 }
+            }
+
+            if (needsSave)
+            {
+                config.save(configFile);
             }
         }
         catch (IOException | InvalidConfigurationException ex)
@@ -237,6 +250,31 @@ public class MainConfig extends PluginComponent<TotalFreedomMod>
             throw new IllegalArgumentException("Value is not of type " + type.getSimpleName());
         }
         entries.put(entry, value);
+    }
+
+    public void save()
+    {
+        try
+        {
+            YamlConfiguration config = new YamlConfiguration();
+            File configFile = getConfigFile();
+
+            if (configFile.exists())
+            {
+                config.load(configFile);
+            }
+
+            for (ConfigEntry entry : ConfigEntry.values())
+            {
+                config.set(entry.getConfigName(), entries.get(entry));
+            }
+
+            config.save(configFile);
+        }
+        catch (IOException | InvalidConfigurationException ex)
+        {
+            FLog.severe(ex);
+        }
     }
 
     private void copyDefaultConfig(File targetFile)

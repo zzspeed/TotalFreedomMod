@@ -10,20 +10,15 @@ import java.util.regex.Pattern;
 import me.totalfreedom.totalfreedommod.FreedomService;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
-import me.totalfreedom.totalfreedommod.httpd.NanoHTTPD.HTTPSession;
 import me.totalfreedom.totalfreedommod.httpd.NanoHTTPD.Response;
 import me.totalfreedom.totalfreedommod.httpd.module.HTTPDModule;
-import me.totalfreedom.totalfreedommod.httpd.module.Module_dump;
 import me.totalfreedom.totalfreedommod.httpd.module.Module_file;
 import me.totalfreedom.totalfreedommod.httpd.module.Module_help;
 import me.totalfreedom.totalfreedommod.httpd.module.Module_list;
-import me.totalfreedom.totalfreedommod.httpd.module.Module_logs;
 import me.totalfreedom.totalfreedommod.httpd.module.Module_permbans;
 import me.totalfreedom.totalfreedommod.httpd.module.Module_players;
 import me.totalfreedom.totalfreedommod.httpd.module.Module_schematic;
 import me.totalfreedom.totalfreedommod.util.FLog;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 
 public class HTTPDaemon extends FreedomService
 {
@@ -53,11 +48,9 @@ public class HTTPDaemon extends FreedomService
 
         // Modules
         modules.clear();
-        module("dump", Module_dump.class, true);
         module("file", Module_file.class, true);
         module("help", Module_help.class, false);
         module("list", Module_list.class, false);
-        module("logs", Module_logs.class, true);
         module("permbans", Module_permbans.class, true);
         module("players", Module_players.class, false);
         module("schematic", Module_schematic.class, true);
@@ -115,7 +108,7 @@ public class HTTPDaemon extends FreedomService
         @Override
         public Response serve(HTTPSession session)
         {
-            final String[] args = StringUtils.split(session.getUri(), "/");
+            final String[] args = session.getUri().split("/");
 
             ModuleExecutable mex = modules.get("file");
             if (args.length >= 1)
@@ -135,7 +128,7 @@ public class HTTPDaemon extends FreedomService
             catch (Exception ex)
             {
                 FLog.severe(ex);
-                return new Response(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Error 500: Internal Server Error\r\n" + ex.getMessage() + "\r\n" + ExceptionUtils.getStackTrace(ex));
+                return new Response(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Error 500: Internal Server Error\r\n" + ex.getMessage());
             }
         }
     }

@@ -6,17 +6,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.util.FLog;
-import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -27,7 +23,6 @@ public final class AdminWorld extends CustomWorld
     private static final long CACHE_CLEAR_FREQUENCY = 30L * 1000L; //30 seconds, milliseconds
     private static final long TP_COOLDOWN_TIME = 500L; //0.5 seconds, milliseconds
     private static final String GENERATION_PARAMETERS = ConfigEntry.FLATLANDS_GENERATE_PARAMS.getString();
-    private static final String WORLD_NAME = "adminworld";
     //
     private final Map<Player, Long> teleportCooldown = new HashMap<>();
     private final Map<CommandSender, Boolean> accessCache = new HashMap<>();
@@ -37,9 +32,9 @@ public final class AdminWorld extends CustomWorld
     private WorldWeather weather = WorldWeather.OFF;
     private WorldTime time = WorldTime.INHERIT;
 
-    public AdminWorld()
+    public AdminWorld(TotalFreedomMod plugin)
     {
-        super("adminworld");
+        super(plugin, "adminworld", "Admin World");
     }
 
     @Override
@@ -67,20 +62,6 @@ public final class AdminWorld extends CustomWorld
         world.setSpawnFlags(false, false);
         world.setSpawnLocation(0, 50, 0);
 
-        final Block welcomeSignBlock = world.getBlockAt(0, 50, 0);
-        welcomeSignBlock.setType(Material.SIGN_POST);
-        org.bukkit.block.Sign welcomeSign = (org.bukkit.block.Sign) welcomeSignBlock.getState();
-
-        org.bukkit.material.Sign signData = (org.bukkit.material.Sign) welcomeSign.getData();
-        signData.setFacingDirection(BlockFace.NORTH);
-
-        welcomeSign.setLine(0, ChatColor.GREEN + "AdminWorld");
-        welcomeSign.setLine(1, ChatColor.DARK_GRAY + "---");
-        welcomeSign.setLine(2, ChatColor.YELLOW + "Spawn Point");
-        welcomeSign.setLine(3, ChatColor.DARK_GRAY + "---");
-        welcomeSign.update();
-
-        plugin.gr.commitGameRules();
         return world;
     }
 
@@ -101,11 +82,20 @@ public final class AdminWorld extends CustomWorld
         return false;
     }
 
-    public Player removeGuest(Player guest)
+    public boolean hasGuests()
     {
-        final Player player = guestList.remove(guest);
-        wipeAccessCache();
-        return player;
+        return !guestList.isEmpty();
+    }
+
+
+    public boolean removeGuest(Player guest)
+    {
+        final boolean success = guestList.remove(guest) != null;
+        if (success)
+        {
+            wipeAccessCache();
+        }
+        return success;
     }
 
     public Player removeGuest(String partialName)
@@ -129,15 +119,13 @@ public final class AdminWorld extends CustomWorld
     public String guestListToString()
     {
         final List<String> output = new ArrayList<>();
-        final Iterator<Map.Entry<Player, Player>> it = guestList.entrySet().iterator();
-        while (it.hasNext())
+        for (Entry<Player, Player> entry : guestList.entrySet())
         {
-            final Entry<Player, Player> entry = it.next();
             final Player player = entry.getKey();
             final Player supervisor = entry.getValue();
             output.add(player.getName() + " (Supervisor: " + supervisor.getName() + ")");
         }
-        return StringUtils.join(output, ", ");
+        return String.join(", ", output);
     }
 
     public void purgeGuestList()

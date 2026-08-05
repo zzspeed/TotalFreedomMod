@@ -4,7 +4,8 @@ import me.totalfreedom.totalfreedommod.FreedomService;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.player.FPlayer;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -65,7 +66,7 @@ public class InteractBlocker extends FreedomService
                 }
 
                 player.getInventory().setItem(player.getInventory().getHeldItemSlot(), new ItemStack(Material.COOKIE, 1));
-                player.sendMessage(ChatColor.GRAY + "Water buckets are currently disabled.");
+                player.sendMessage(Component.text("Water buckets are currently disabled.", NamedTextColor.GRAY));
                 event.setCancelled(true);
                 break;
             }
@@ -78,12 +79,12 @@ public class InteractBlocker extends FreedomService
                 }
 
                 player.getInventory().setItem(player.getInventory().getHeldItemSlot(), new ItemStack(Material.COOKIE, 1));
-                player.sendMessage(ChatColor.GRAY + "Lava buckets are currently disabled.");
+                player.sendMessage(Component.text("Lava buckets are currently disabled.", NamedTextColor.GRAY));
                 event.setCancelled(true);
                 break;
             }
 
-            case EXPLOSIVE_MINECART:
+            case TNT_MINECART:
             {
                 if (ConfigEntry.ALLOW_TNT_MINECARTS.getBoolean())
                 {
@@ -91,16 +92,8 @@ public class InteractBlocker extends FreedomService
                 }
 
                 player.getInventory().clear(player.getInventory().getHeldItemSlot());
-                player.sendMessage(ChatColor.GRAY + "TNT minecarts are currently disabled.");
+                player.sendMessage(Component.text("TNT minecarts are currently disabled.", NamedTextColor.GRAY));
                 event.setCancelled(true);
-                break;
-            }
-
-            case SIGN:
-            case SIGN_POST:
-            case WALL_SIGN:
-            {
-                player.sendMessage(ChatColor.GRAY + "Sign interaction is currently disabled.");
                 break;
             }
         }

@@ -4,7 +4,7 @@ import me.totalfreedom.totalfreedommod.FreedomService;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.player.FPlayer;
 import me.totalfreedom.totalfreedommod.util.FUtil;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -13,6 +13,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerKickEvent;
 
 public class Cager extends FreedomService
 {
@@ -54,6 +55,11 @@ public class Cager extends FreedomService
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event)
     {
+        if (!event.hasChangedPosition())
+        {
+            return;
+        }
+
         FPlayer player = plugin.pl.getPlayer(event.getPlayer());
         CageData cage = player.getCageData();
 
@@ -62,7 +68,7 @@ public class Cager extends FreedomService
             return;
         }
 
-        Location playerLoc = player.getPlayer().getLocation().add(0, 1, 0);
+        Location playerLoc = event.getTo().clone().add(0, 1, 0);
         Location cageLoc = cage.getLocation();
 
         final boolean outOfCage;
@@ -78,13 +84,25 @@ public class Cager extends FreedomService
         if (outOfCage)
         {
             player.getPlayer().teleport(cageLoc.subtract(0, 0.1, 0));
-            FUtil.playerMsg(player.getPlayer(), "You may not leave your cage.", ChatColor.RED);
+            FUtil.playerMsg(player.getPlayer(), "You may not leave your cage.", NamedTextColor.RED);
             cage.regenerate();
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerQuit(PlayerQuitEvent event)
+    {
+        FPlayer player = plugin.pl.getPlayer(event.getPlayer());
+        CageData cage = player.getCageData();
+
+        if (cage.isCaged())
+        {
+            cage.playerQuit();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerKick(PlayerKickEvent event)
     {
         FPlayer player = plugin.pl.getPlayer(event.getPlayer());
         CageData cage = player.getCageData();

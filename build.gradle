@@ -1,0 +1,172 @@
+plugins {
+    id 'java'
+    id 'com.gorylenko.gradle-git-properties' version '2.5.7'
+}
+
+group = 'me.totalfreedom'
+version = '26.7.1'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://repo.papermc.io/repository/maven-public/'
+    }
+    maven {
+        url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+    }
+    maven {
+        url 'https://jitpack.io'
+    }
+    maven {
+        url 'https://maven.enginehub.org/repo/'
+    }
+    maven {
+        url 'https://repo.codemc.io/repository/creatorfromhell/'
+    }
+    maven {
+        url 'https://repo.codemc.io/repository/maven-releases/'
+    }
+    maven {
+        name = "playpro"
+        url = "https://maven.playpro.com/"
+    }
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:26.1.2.build.61-stable'
+    compileOnly 'org.projectlombok:lombok:1.18.42'
+    annotationProcessor 'org.projectlombok:lombok:1.18.42'
+    compileOnly 'org.apache.commons:commons-lang3:3.14.0'
+    compileOnly 'commons-io:commons-io:2.16.1'
+    compileOnly 'net.kyori:adventure-text-serializer-ansi:4.17.0'
+    compileOnly 'net.milkbowl.vault:VaultUnlockedAPI:2.16'
+    compileOnly('com.sk89q.worldedit:worldedit-bukkit:7.3.10') { transitive = false }
+    compileOnly('com.sk89q.worldedit:worldedit-core:7.3.10') { transitive = false }
+
+    compileOnly 'org.apache.sshd:sshd-core:2.17.1'
+
+    compileOnly 'org.jline:jline:3.28.0'
+    compileOnly 'org.apache.logging.log4j:log4j-core:2.24.3'
+
+    compileOnly 'net.dv8tion:JDA:5.6.1'
+
+    compileOnly 'com.github.retrooper:packetevents-spigot:2.12.1'
+
+    compileOnly "net.coreprotect:coreprotect:22.4"
+}
+
+configurations.all {
+    resolutionStrategy {
+        force 'io.papermc.paper:paper-api:26.1.2.build.61-stable'
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.release = 25
+    options.compilerArgs.add('-parameters')
+    options.compilerArgs.add('-Xlint:unchecked')
+    options.deprecation = true
+}
+
+task generateBuildNumber {
+    def buildNumberFile = file('build.properties')
+    def buildNumber = buildNumberFile.exists() ? {
+        try {
+            def props = new Properties()
+            props.load(new FileInputStream(buildNumberFile))
+            (props.getProperty('buildNumber', '0') as Integer ?: 0) + 1
+        } catch (Exception e) {
+            1
+        }
+    }.call() : 1
+
+    doLast {
+        buildNumberFile.text = "buildNumber=$buildNumber\n"
+    }
+}
+
+gitProperties {
+    dateFormat = 'yyyy-MM-dd HH:mm:ss'
+    failOnNoGitDirectory = true
+    gitPropertiesResourceDir = file("${projectDir}/src/main/resources")
+    keys = [
+        'git.commit.id',
+        'git.commit.id.abbrev'
+    ]
+    gitPropertiesName = 'git.properties'
+}
+
+task addBuildTimeToGitProperties {
+    dependsOn generateGitProperties
+    doLast {
+        def gitPropsFile = file("${projectDir}/src/main/resources/git.properties")
+        if (gitPropsFile.exists()) {
+            def props = new Properties()
+            props.load(new FileInputStream(gitPropsFile))
+            
+            def dateFormat = new java.text.SimpleDateFormat('yyyy-MM-dd HH:mm:ss')
+            props.setProperty('git.build.time', dateFormat.format(new Date()))
+            
+            def writer = new FileWriter(gitPropsFile)
+            props.store(writer, null)
+            writer.close()
+        }
+    }
+}
+
+processResources {
+    dependsOn generateBuildNumber, addBuildTimeToGitProperties
+    filteringCharset = 'UTF-8'
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    
+    filesMatching('build.properties') {
+        def buildNumberFile = file('build.properties')
+        def buildNumber = '1'
+        if (buildNumberFile.exists()) {
+            def props = new Properties()
+            props.load(new FileInputStream(buildNumberFile))
+            buildNumber = props.getProperty('buildNumber', '1')
+        }
+        
+        expand(
+            buildAuthor: project.findProperty('buildAuthor') ?: 'aokod',
+            buildCodeName: project.findProperty('buildCodeName') ?: 'Elektra',
+            buildNumber: buildNumber,
+            buildVersion: project.version
+        )
+    }
+    
+    filesMatching('plugin.yml') {
+        expand(
+            tfm: [
+                build: [
+                    version: project.version
+                ]
+            ]
+        )
+    }
+
+    filesMatching('paper-plugin.yml') {
+        expand(
+            tfm: [
+                build: [
+                    version: project.version
+                ]
+            ]
+        )
+    }
+}
+
+jar {
+    archiveBaseName = 'TotalFreedomMod'
+    archiveVersion = project.version
+    destinationDirectory = file('build/libs')
+}
+

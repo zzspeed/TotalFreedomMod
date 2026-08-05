@@ -1,0 +1,49 @@
+name: TotalFreedomMod
+version: '${tfm.build.version}'
+main: me.totalfreedom.totalfreedommod.TotalFreedomMod
+loader: me.totalfreedom.totalfreedommod.TFMLibraryLoader
+api-version: '1.21'
+description: Plugin for the Total Freedom server.
+load: STARTUP
+authors:
+  - Madgeek1450
+  - Prozza
+website: https://github.com/tfreedomorg/TotalFreedomMod
+dependencies:
+  server:
+    Vault:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    WorldEdit:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    TF-WorldEdit:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    BukkitTelnet:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Essentials:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    LibsDisguises:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    packetevents:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    CoreProtect:
+      load: AFTER
+      required: false
+      join-classpath: true
+    WorldGuard:
+      load: AFTER
+      required: false
+      join-classpath: false

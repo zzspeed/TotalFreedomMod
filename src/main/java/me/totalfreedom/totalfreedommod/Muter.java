@@ -1,24 +1,25 @@
 package me.totalfreedom.totalfreedommod;
 
-import java.util.Arrays;
 import java.util.List;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.player.FPlayer;
+import me.totalfreedom.totalfreedommod.util.AdventureUtil;
 import me.totalfreedom.totalfreedommod.util.FLog;
 import me.totalfreedom.totalfreedommod.util.FSync;
-import org.apache.commons.lang3.StringUtils;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
 public class Muter extends FreedomService
 {
 
-    public static final List<String> MUTE_COMMANDS = Arrays.asList(StringUtils.split("say,me,msg,tell,reply,mail", ","));
+    public static final List<String> MUTE_COMMANDS = List.of("say", "me", "msg", "tell", "reply", "mail", ",");
 
     public Muter(TotalFreedomMod plugin)
     {
@@ -36,23 +37,41 @@ public class Muter extends FreedomService
     }
 
     @EventHandler(priority = EventPriority.LOW)
-    public void onAsyncPlayerChatEvent(AsyncPlayerChatEvent event)
+    public void onAsyncPlayerChatEvent(AsyncChatEvent event)
     {
-        FPlayer fPlayer = plugin.pl.getPlayerSync(event.getPlayer());
+        if (shouldCancelChat(event.getPlayer()))
+        {
+            event.setCancelled(true);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    @EventHandler(priority = EventPriority.LOW)
+    public void onLegacyAsyncPlayerChat(AsyncPlayerChatEvent event)
+    {
+        if (shouldCancelChat(event.getPlayer()))
+        {
+            event.setCancelled(true);
+        }
+    }
+
+    private boolean shouldCancelChat(Player player)
+    {
+        FPlayer fPlayer = plugin.pl.getPlayerSync(player);
 
         if (!fPlayer.isMuted())
         {
-            return;
+            return false;
         }
 
-        if (plugin.al.isAdminSync(event.getPlayer()))
+        if (plugin.al.isAdminSync(player))
         {
             fPlayer.setMuted(false);
-            return;
+            return false;
         }
 
-        FSync.playerMsg(event.getPlayer(), ChatColor.RED + "You are muted, STFU! - You will be unmuted in 5 minutes.");
-        event.setCancelled(true);
+        FSync.playerMsg(player, "You are muted, STFU! - You will be unmuted in 5 minutes.");
+        return true;
     }
 
     @EventHandler(priority = EventPriority.LOW)
@@ -81,7 +100,7 @@ public class Muter extends FreedomService
             cmdName = cmdName.substring(1);
         }
 
-        Command command = server.getPluginCommand(cmdName);
+        Command command = server.getCommandMap().getCommand(cmdName);
         if (command != null)
         {
             cmdName = command.getName().toLowerCase();
@@ -89,7 +108,7 @@ public class Muter extends FreedomService
 
         if (MUTE_COMMANDS.contains(cmdName))
         {
-            player.sendMessage(ChatColor.RED + "That command is blocked while you are muted.");
+            player.sendMessage(Component.text("That command is blocked while you are muted.", NamedTextColor.RED));
             event.setCancelled(true);
             return;
         }
@@ -97,7 +116,7 @@ public class Muter extends FreedomService
         // TODO: Should this go here?
         if (ConfigEntry.ENABLE_PREPROCESS_LOG.getBoolean())
         {
-            FLog.info(String.format("[PREPROCESS_COMMAND] %s(%s): %s", player.getName(), ChatColor.stripColor(player.getDisplayName()), message), true);
+            FLog.info(String.format("[PREPROCESS_COMMAND] %s(%s): %s", player.getName(), AdventureUtil.stripColor(player.displayName().toString()), message), true);
         }
     }
 

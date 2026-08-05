@@ -1,6 +1,8 @@
 # TFM excludes
 /lib
-build.properties
+/build.properties
+git.properties
+.github/
 
 # Netbeans excludes
 /nbproject/private
@@ -25,6 +27,14 @@ manifest.mf
 # Maven excludes
 /target
 
+# Gradle excludes
+.gradle/
+build/
+!gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+gradle-app.setting
+
 # OS generated files
 .DS_Store
 ._*
@@ -32,3 +42,6 @@ manifest.mf
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Visual Studio Code configuration files
+.vscode/

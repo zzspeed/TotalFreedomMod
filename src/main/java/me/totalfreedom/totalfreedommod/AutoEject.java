@@ -3,21 +3,17 @@ package me.totalfreedom.totalfreedommod;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.Map;
 import me.totalfreedom.totalfreedommod.banning.Ban;
+import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.util.FLog;
 import me.totalfreedom.totalfreedommod.util.FUtil;
-import net.pravian.aero.util.Ips;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 
 public class AutoEject extends FreedomService
 {
-
-    private final Map<String, Integer> ejects = new HashMap<>(); // ip -> amount
 
     public AutoEject(TotalFreedomMod plugin)
     {
@@ -36,81 +32,74 @@ public class AutoEject extends FreedomService
 
     public void autoEject(Player player, String kickMessage)
     {
-        EjectMethod method = EjectMethod.STRIKE_ONE;
-        final String ip = Ips.getIp(player);
-
-        if (!ejects.containsKey(ip))
+        final Boolean enabled = ConfigEntry.AUTOEJECT_ENABLED.getBoolean();
+        if (enabled != null && !enabled)
         {
-            ejects.put(ip, 0);
+            FLog.info("AutoEject suppressed (disabled): " + player.getName() + " - " + kickMessage);
+            return;
         }
 
-        int kicks = ejects.get(ip);
-        kicks += 1;
+        final String ip = player.getAddress().getAddress().getHostAddress();
+        final int strike = plugin.sl.recordStrikeAndGet(ip, player.getName());
 
-        ejects.put(ip, kicks);
-
-        if (kicks <= 1)
-        {
-            method = EjectMethod.STRIKE_ONE;
-        }
-        else if (kicks == 2)
-        {
-            method = EjectMethod.STRIKE_TWO;
-        }
-        else if (kicks >= 3)
-        {
-            method = EjectMethod.STRIKE_THREE;
-        }
-
-        FLog.info("AutoEject -> name: " + player.getName() + " - player ip: " + ip + " - method: " + method.toString());
+        FLog.info("AutoEject -> name: " + player.getName() + " - player ip: " + ip + " - strike: " + strike);
 
         player.setOp(false);
         player.setGameMode(GameMode.SURVIVAL);
         player.getInventory().clear();
 
-        switch (method)
+        final int timeout;
+        if (strike >= 3)
         {
-            case STRIKE_ONE:
-            {
-                final Calendar cal = new GregorianCalendar();
-                cal.add(Calendar.MINUTE, 5);
-                final Date expires = cal.getTime();
+            timeout = timeoutMinutes(ConfigEntry.AUTOEJECT_STRIKE_THREE_TIMEOUT, -1);
+        }
+        else if (strike == 2)
+        {
+            timeout = timeoutMinutes(ConfigEntry.AUTOEJECT_STRIKE_TWO_TIMEOUT, 10);
+        }
+        else
+        {
+            timeout = timeoutMinutes(ConfigEntry.AUTOEJECT_STRIKE_ONE_TIMEOUT, 5);
+        }
+        applyStrike(player, kickMessage, timeout);
+    }
 
-                FUtil.bcastMsg(ChatColor.RED + player.getName() + " has been banned for 5 minutes.");
+    private int timeoutMinutes(ConfigEntry entry, int fallback)
+    {
+        final Integer v = entry.getInteger();
+        return v == null ? fallback : v;
+    }
 
-                plugin.bm.addBan(Ban.forPlayer(player, Bukkit.getConsoleSender(), expires, kickMessage));
-                player.kickPlayer(kickMessage);
+    private void applyStrike(Player player, String kickMessage, int timeoutMinutes)
+    {
+        if (timeoutMinutes == 0)
+        {
+            FUtil.bcastMsg(player.getName() + " has been kicked.", NamedTextColor.RED);
+            player.kick(FUtil.colorizeWithLinks(kickMessage));
+            return;
+        }
 
-                break;
-            }
-            case STRIKE_TWO:
-            {
-                final Calendar c = new GregorianCalendar();
-                c.add(Calendar.MINUTE, 10);
-                final Date expires = c.getTime();
-
-                FUtil.bcastMsg(ChatColor.RED + player.getName() + " has been banned for 10 minutes.");
-
-                plugin.bm.addBan(Ban.forPlayer(player, Bukkit.getConsoleSender(), expires, kickMessage));
-                player.kickPlayer(kickMessage);
-                break;
-            }
-            case STRIKE_THREE:
+        if (timeoutMinutes < 0)
+        {
+            if (Boolean.TRUE.equals(ConfigEntry.RANGE_BAN_IPS.getBoolean()))
             {
                 plugin.bm.addBan(Ban.forPlayerFuzzy(player, Bukkit.getConsoleSender(), null, kickMessage));
-
-                FUtil.bcastMsg(ChatColor.RED + player.getName() + " has been banned.");
-
-                player.kickPlayer(kickMessage);
-                break;
             }
+            else
+            {
+                plugin.bm.addBan(Ban.forPlayer(player, Bukkit.getConsoleSender(), null, kickMessage));
+            }
+            FUtil.bcastMsg(player.getName() + " has been banned.", NamedTextColor.RED);
+            player.kick(FUtil.colorizeWithLinks(kickMessage));
+            return;
         }
+
+        final Calendar cal = new GregorianCalendar();
+        cal.add(Calendar.MINUTE, timeoutMinutes);
+        final Date expires = cal.getTime();
+
+        FUtil.bcastMsg(player.getName() + " has been banned for " + timeoutMinutes + " minutes.", NamedTextColor.RED);
+        plugin.bm.addBan(Ban.forPlayer(player, Bukkit.getConsoleSender(), expires, kickMessage));
+        player.kick(FUtil.colorizeWithLinks(kickMessage));
     }
-
-    public static enum EjectMethod
-    {
-
-        STRIKE_ONE, STRIKE_TWO, STRIKE_THREE;
-    }
-
 }

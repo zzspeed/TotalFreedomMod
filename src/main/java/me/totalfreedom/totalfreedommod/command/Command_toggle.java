@@ -1,14 +1,14 @@
 package me.totalfreedom.totalfreedommod.command;
 
-import me.totalfreedom.totalfreedommod.GameRuleHandler.GameRule;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.rank.Rank;
 import me.totalfreedom.totalfreedommod.util.FUtil;
+import org.bukkit.GameRules;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH)
+@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH, permission = "tfm.server.toggle")
 @CommandParameters(description = "Toggles TotalFreedomMod settings", usage = "/<command> [option] [value] [value]")
 public class Command_toggle extends FreedomCommand
 {
@@ -21,6 +21,9 @@ public class Command_toggle extends FreedomCommand
             msg("Available toggles: ");
             msg("- waterplace");
             msg("- fireplace");
+            msg("- signplace");
+            msg("- fallingsigns");
+            msg("- fallingblocks");
             msg("- lavaplace");
             msg("- fluidspread");
             msg("- lavadmg");
@@ -31,6 +34,8 @@ public class Command_toggle extends FreedomCommand
             msg("- entitywipe");
             msg("- nonuke [range] [count]");
             msg("- explosives [radius]");
+            msg("- autoclear");
+            msg("- autotp");
             return false;
         }
 
@@ -43,6 +48,24 @@ public class Command_toggle extends FreedomCommand
         if (args[0].equals("fireplace"))
         {
             toggle("Fire placement is", ConfigEntry.ALLOW_FIRE_PLACE);
+            return true;
+        }
+
+        if (args[0].equals("signplace"))
+        {
+            toggle("Sign placement is", ConfigEntry.ALLOW_SIGN_PLACE);
+            return true;
+        }
+
+        if (args[0].equals("fallingsigns"))
+        {
+            toggle("Falling sign placement is", ConfigEntry.ALLOW_FALLING_SIGNS);
+            return true;
+        }
+
+        if (args[0].equals("fallingblocks"))
+        {
+            toggle("Falling blocks are", ConfigEntry.ALLOW_FALLING_BLOCKS);
             return true;
         }
 
@@ -67,7 +90,7 @@ public class Command_toggle extends FreedomCommand
         if (args[0].equals("firespread"))
         {
             toggle("Fire spread is", ConfigEntry.ALLOW_FIRE_SPREAD);
-            plugin.gr.setGameRule(GameRule.DO_FIRE_TICK, ConfigEntry.ALLOW_FIRE_SPREAD.getBoolean());
+            plugin.gr.setGameRule(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, ConfigEntry.ALLOW_FIRE_SPREAD.getBoolean() ? 128 : 0);
             return true;
         }
 
@@ -153,6 +176,16 @@ public class Command_toggle extends FreedomCommand
             {
                 msg("Radius set to " + ConfigEntry.EXPLOSIVE_RADIUS.getDouble());
             }
+            return true;
+        }
+        if (args[0].equals("autoclear"))
+        {
+            toggle("Clearing inventories on join is", ConfigEntry.AUTO_CLEAR);
+            return true;
+        }
+        if (args[0].equals("autotp"))
+        {
+            toggle("Teleportation on join is", ConfigEntry.AUTO_TP);
             return true;
         }
 

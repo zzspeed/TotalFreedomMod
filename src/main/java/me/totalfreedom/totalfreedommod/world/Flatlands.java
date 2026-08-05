@@ -1,12 +1,13 @@
 package me.totalfreedom.totalfreedommod.world;
 
 import java.io.File;
+import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.util.FLog;
-import me.totalfreedom.totalfreedommod.util.FUtil;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
@@ -19,9 +20,9 @@ public class Flatlands extends CustomWorld
 
     private static final String GENERATION_PARAMETERS = ConfigEntry.FLATLANDS_GENERATE_PARAMS.getString();
 
-    public Flatlands()
+    public Flatlands(TotalFreedomMod plugin)
     {
-        super("flatlands");
+        super(plugin, "flatlands", "Flatlands");
     }
 
     @Override
@@ -44,21 +45,6 @@ public class Flatlands extends CustomWorld
 
         world.setSpawnFlags(false, false);
         world.setSpawnLocation(0, 50, 0);
-
-        final Block welcomeSignBlock = world.getBlockAt(0, 50, 0);
-        welcomeSignBlock.setType(Material.SIGN_POST);
-        org.bukkit.block.Sign welcomeSign = (org.bukkit.block.Sign) welcomeSignBlock.getState();
-
-        org.bukkit.material.Sign signData = (org.bukkit.material.Sign) welcomeSign.getData();
-        signData.setFacingDirection(BlockFace.NORTH);
-
-        welcomeSign.setLine(0, ChatColor.GREEN + "Flatlands");
-        welcomeSign.setLine(1, ChatColor.DARK_GRAY + "---");
-        welcomeSign.setLine(2, ChatColor.YELLOW + "Spawn Point");
-        welcomeSign.setLine(3, ChatColor.DARK_GRAY + "---");
-        welcomeSign.update();
-
-        plugin.gr.commitGameRules();
 
         return world;
     }

@@ -1,45 +1,73 @@
 package me.totalfreedom.totalfreedommod.command;
 
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import lombok.Getter;
 import me.totalfreedom.totalfreedommod.FreedomService;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
+import me.totalfreedom.totalfreedommod.command.resolver.*;
 import me.totalfreedom.totalfreedommod.util.FLog;
-import net.pravian.aero.command.handler.SimpleCommandHandler;
-import org.bukkit.ChatColor;
 
+@SuppressWarnings("UnstableApiUsage")
 public class CommandLoader extends FreedomService
 {
 
     @Getter
-    private final SimpleCommandHandler<TotalFreedomMod> handler;
+    private final CommandHandler<TotalFreedomMod> handler;
+    private boolean started = false;
 
     public CommandLoader(TotalFreedomMod plugin)
     {
         super(plugin);
-
-        handler = new SimpleCommandHandler<>(plugin);
+        handler = new CommandHandler<>(plugin);
     }
 
     @Override
     protected void onStart()
     {
-        handler.clearCommands();
+        if (started)
+        {
+            return;
+        }
+        started = true;
+
         handler.setExecutorFactory(new FreedomCommandExecutor.FreedomExecutorFactory(plugin));
         handler.setCommandClassPrefix("Command_");
-        handler.setPermissionMessage(ChatColor.RED + "You do not have permission to use this command.");
-        handler.setOnlyConsoleMessage(ChatColor.RED + "This command can only be used from the console.");
-        handler.setOnlyPlayerMessage(ChatColor.RED + "This command can only be used by players.");
+        handler.setPermissionMessage("\u00A7cYou do not have permission to use this command.");
+        handler.setOnlyConsoleMessage("\u00A7cThis command can only be used from the console.");
+        handler.setOnlyPlayerMessage("\u00A7cThis command can only be used by players.");
+        
+        // Argument resolver registration
+        handler.registerArgumentResolver(PlayerArgumentResolver.class);
+        handler.registerArgumentResolver(PlayerListArgumentResolver.class);
+        handler.registerArgumentResolver(OfflinePlayerArgumentResolver.class);
+        handler.registerArgumentResolver(KeyArgumentResolver.class);
+        handler.registerArgumentResolver(EnchantmentArgumentResolver.class);
+        handler.registerArgumentResolver(PotionEffectTypeArgumentResolver.class);
+        handler.registerArgumentResolver(EntityTypeArgumentResolver.class);
+        handler.registerArgumentResolver(MaterialArgumentResolver.class);
+        handler.registerArgumentResolver(MaterialQueryArgumentProvider.class);
+        handler.registerArgumentResolver(PluginArgumentResolver.class);
+        handler.registerArgumentResolver(DateOffsetArgumentResolver.class);
+        handler.registerArgumentResolver(InetAddressResolver.class);
+        handler.registerArgumentResolver(InetAddressListResolver.class);
+        handler.registerArgumentResolver(EnumArgumentResolver.class);
+        handler.registerArgumentResolver(BooleanArgumentResolver.class);
+        handler.registerArgumentResolver(IntegerArgumentResolver.class);
+        handler.registerArgumentResolver(DoubleArgumentResolver.class);
+        handler.registerArgumentResolver(ProtectedRegionResolver.class);
+        handler.registerArgumentResolver(FloatArgumentResolver.class);
 
-        handler.loadFrom(FreedomCommand.class.getPackage());
-        handler.registerAll("TotalFreedomMod", true);
+        int loaded = handler.loadFrom(FreedomCommand.class.getPackage());
+        FLog.info("Loaded " + loaded + " commands.");
 
-        FLog.info("Loaded " + handler.getExecutors().size() + " commands.");
+        plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
+        {
+            handler.registerAllWithLifecycle(event.registrar());
+        });
     }
 
     @Override
     protected void onStop()
     {
-        handler.clearCommands();
     }
-
 }

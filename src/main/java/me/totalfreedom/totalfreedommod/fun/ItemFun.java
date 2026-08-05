@@ -3,15 +3,21 @@ package me.totalfreedom.totalfreedommod.fun;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import me.totalfreedom.totalfreedommod.FreedomService;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.player.FPlayer;
-import me.totalfreedom.totalfreedommod.util.DepreciationAggregator;
 import me.totalfreedom.totalfreedommod.util.FUtil;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.block.Block;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -19,7 +25,6 @@ import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 public class ItemFun extends FreedomService
@@ -56,28 +61,30 @@ public class ItemFun extends FreedomService
 
         switch (event.getMaterial())
         {
-            case RAW_FISH:
+            case COD:
+            case SALMON:
+            case TROPICAL_FISH:
+            case PUFFERFISH:
             {
                 final int RADIUS_HIT = 5;
                 final int STRENGTH = 4;
 
-                // Clownfish
-                if (DepreciationAggregator.getData_MaterialData(event.getItem().getData()) != 2)
+                // Clownfish (TROPICAL_FISH in 1.13+)
+                if (event.getMaterial() != Material.TROPICAL_FISH)
                 {
                     break;
                 }
 
                 if (!plugin.al.isSeniorAdmin(player))
                 {
-                    final StringBuilder msg = new StringBuilder();
-                    final char[] chars = ("You are a clown.").toCharArray();
-                    for (char c : chars)
+                    Component clownMsg = Component.empty();
+                    for (char c : "You are a clown.".toCharArray())
                     {
-                        msg.append(FUtil.randomChatColor()).append(c);
+                        clownMsg = clownMsg.append(Component.text(String.valueOf(c)).color(FUtil.randomChatColor()));
                     }
-                    player.sendMessage(msg.toString());
+                    player.sendMessage(clownMsg);
 
-                    player.getEquipment().getItemInMainHand().setType(Material.POTATO_ITEM);
+                    player.getEquipment().getItemInMainHand().setType(Material.POTATO);
                     break;
                 }
 
@@ -102,8 +109,9 @@ public class ItemFun extends FreedomService
                     {
                         if (targetPosVec.distanceSquared(playerLocVec) < (RADIUS_HIT * RADIUS_HIT))
                         {
-                            FUtil.setFlying(player, false);
+                            FUtil.setFlying(target, false);
                             target.setVelocity(targetPosVec.subtract(playerLocVec).normalize().multiply(STRENGTH));
+                            playClownfishSounds(target, targetPos);
                             didHit = true;
                         }
                     }
@@ -114,19 +122,12 @@ public class ItemFun extends FreedomService
 
                 if (didHit)
                 {
-                    final Sound[] sounds = Sound.values();
-                    for (Sound sound : sounds)
-                    {
-                        if (sound.toString().contains("HIT"))
-                        {
-                            playerLoc.getWorld().playSound(randomOffset(playerLoc, 5.0), sound, 100.0f, randomDoubleRange(0.5, 2.0).floatValue());
-                        }
-                    }
+                    playClownfishSounds(player, playerLoc);
                 }
                 break;
             }
 
-            case CARROT_ITEM:
+            case CARROT:
             {
                 if (!ConfigEntry.ALLOW_EXPLOSIONS.getBoolean())
                 {
@@ -144,7 +145,7 @@ public class ItemFun extends FreedomService
                 Vector playerDirection = location.getDirection().normalize();
 
                 double distance = 150.0;
-                Block targetBlock = DepreciationAggregator.getTargetBlock(player, null, Math.round((float) distance));
+                Block targetBlock = player.getTargetBlock(null, Math.round((float) distance));
                 if (targetBlock != null)
                 {
                     distance = location.distance(targetBlock.getLocation());
@@ -173,19 +174,15 @@ public class ItemFun extends FreedomService
                     lastBlock = block;
                 }
 
-                new BukkitRunnable()
+                plugin.getServer().getScheduler().runTaskLater(plugin, () ->
                 {
-                    @Override
-                    public void run()
+                    for (Block tntBlock : affected)
                     {
-                        for (Block tntBlock : affected)
-                        {
-                            TNTPrimed tnt = tntBlock.getWorld().spawn(tntBlock.getLocation(), TNTPrimed.class);
-                            tnt.setFuseTicks(5);
-                            tntBlock.setType(Material.AIR);
-                        }
+                        TNTPrimed tnt = tntBlock.getWorld().spawn(tntBlock.getLocation(), TNTPrimed.class);
+                        tnt.setFuseTicks(5);
+                        tntBlock.setType(Material.AIR);
                     }
-                }.runTaskLater(plugin, 30L);
+                }, 30L);
 
                 event.setCancelled(true);
                 break;
@@ -209,7 +206,7 @@ public class ItemFun extends FreedomService
                 break;
             }
 
-            case SULPHUR:
+            case GUNPOWDER:
             {
                 if (!fPlayer.isMP44Armed())
                 {
@@ -246,7 +243,7 @@ public class ItemFun extends FreedomService
 
                 if (event.getAction().equals(Action.LEFT_CLICK_AIR))
                 {
-                    targetBlock = DepreciationAggregator.getTargetBlock(player, null, 120);
+                    targetBlock = player.getTargetBlock(null, 120);
                 }
                 else
                 {
@@ -267,6 +264,18 @@ public class ItemFun extends FreedomService
         }
     }
 
+    private void playClownfishSounds(Player listener, Location location)
+    {
+        for (Sound sound : Registry.SOUND_EVENT)
+        {
+            final Key key = Registry.SOUND_EVENT.getKey(sound);
+            if (key != null && key.asString().contains("hit"))
+            {
+                listener.playSound(randomOffset(location, 2.0), sound, SoundCategory.MASTER, 1.0F, randomDoubleRange(0.5, 2.0).floatValue());
+            }
+        }
+    }
+
     private Location randomOffset(Location a, double magnitude)
     {
         return a.clone().add(randomDoubleRange(-1.0, 1.0) * magnitude, randomDoubleRange(-1.0, 1.0) * magnitude, randomDoubleRange(-1.0, 1.0) * magnitude);
@@ -274,7 +283,7 @@ public class ItemFun extends FreedomService
 
     private Double randomDoubleRange(double min, double max)
     {
-        return min + (random.nextDouble() * ((max - min) + 1.0));
+        return min + (random.nextDouble() * (max - min));
     }
 
 }

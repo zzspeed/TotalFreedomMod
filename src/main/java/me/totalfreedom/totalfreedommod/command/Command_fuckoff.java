@@ -6,7 +6,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandPermissions(level = Rank.SENIOR_ADMIN, source = SourceType.ONLY_IN_GAME)
+@CommandPermissions(level = Rank.SENIOR_ADMIN, source = SourceType.ONLY_IN_GAME, permission = "tfm.admin.senior.fuckoff")
 @CommandParameters(description = "You'll never even see it coming.", usage = "/<command> <on [radius (default=25)] | off>")
 public class Command_fuckoff extends FreedomCommand
 {
@@ -23,7 +23,7 @@ public class Command_fuckoff extends FreedomCommand
 
         if (!args[0].equals("on"))
         {
-            player.disableFuckoff();
+            plugin.fo.disable(playerSender);
         }
         else
         {
@@ -40,7 +40,7 @@ public class Command_fuckoff extends FreedomCommand
                 }
             }
 
-            player.setFuckoff(radius);
+            plugin.fo.enable(playerSender, radius);
         }
 
         msg("Fuckoff " + (player.isFuckOff() ? ("enabled. Radius: " + player.getFuckoffRadius() + ".") : "disabled."));

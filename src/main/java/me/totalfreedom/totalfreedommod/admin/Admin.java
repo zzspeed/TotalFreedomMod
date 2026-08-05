@@ -1,49 +1,37 @@
 package me.totalfreedom.totalfreedommod.admin;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import java.util.Date;
 import java.util.List;
-import lombok.Getter;
-import lombok.Setter;
+import java.util.UUID;
 import me.totalfreedom.totalfreedommod.rank.Rank;
+import me.totalfreedom.totalfreedommod.util.ConfigInterfaces.ConfigLoadable;
+import me.totalfreedom.totalfreedommod.util.ConfigInterfaces.ConfigSavable;
+import me.totalfreedom.totalfreedommod.util.ConfigInterfaces.Validatable;
 import me.totalfreedom.totalfreedommod.util.FUtil;
-import net.pravian.aero.base.ConfigLoadable;
-import net.pravian.aero.base.ConfigSavable;
-import net.pravian.aero.base.Validatable;
-import net.pravian.aero.util.Ips;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.Validate;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 public class Admin implements ConfigLoadable, ConfigSavable, Validatable
 {
 
-    @Getter
+    private UUID uuid;
     private String configKey;
-    @Getter
-    @Setter
     private String name;
-    @Getter
-    @Setter
     private boolean active = true;
-    @Getter
-    @Setter
     private Rank rank = Rank.SUPER_ADMIN;
-    @Getter
+    private String customRankId = null;
     private final List<String> ips = Lists.newArrayList();
-    @Getter
-    @Setter
     private Date lastLogin = new Date();
-    @Getter
-    @Setter
     private String loginMessage = null;
 
     public Admin(Player player)
     {
+        this.uuid = player.getUniqueId();
         this.configKey = player.getName().toLowerCase();
         this.name = player.getName();
-        this.ips.add(Ips.getIp(player));
+        this.ips.add(player.getAddress().getAddress().getHostAddress());
     }
 
     public Admin(String configKey)
@@ -57,10 +45,11 @@ public class Admin implements ConfigLoadable, ConfigSavable, Validatable
         final StringBuilder output = new StringBuilder();
 
         output.append("Admin: ").append(name).append("\n")
-                .append("- IPs: ").append(StringUtils.join(ips, ", ")).append("\n")
+                .append("- IPs: ").append(String.join(", ", ips)).append("\n")
                 .append("- Last Login: ").append(FUtil.dateToString(lastLogin)).append("\n")
                 .append("- Custom Login Message: ").append(loginMessage).append("\n")
                 .append("- Rank: ").append(rank.getName()).append("\n")
+                .append("- Custom Rank: ").append(customRankId != null ? customRankId : "none").append("\n")
                 .append("- Is Active: ").append(active);
 
         return output.toString();
@@ -71,7 +60,7 @@ public class Admin implements ConfigLoadable, ConfigSavable, Validatable
         configKey = player.getName().toLowerCase();
         name = player.getName();
         ips.clear();
-        ips.add(Ips.getIp(player));
+        ips.add(player.getAddress().getAddress().getHostAddress());
     }
 
     @Override
@@ -80,22 +69,25 @@ public class Admin implements ConfigLoadable, ConfigSavable, Validatable
         name = cs.getString("username", configKey);
         active = cs.getBoolean("active", true);
         rank = Rank.findRank(cs.getString("rank"));
+
         ips.clear();
         ips.addAll(cs.getStringList("ips"));
         lastLogin = FUtil.stringToDate(cs.getString("last_login"));
         loginMessage = cs.getString("login_message", null);
+        customRankId = cs.getString("custom_rank", null);
     }
 
     @Override
     public void saveTo(ConfigurationSection cs)
     {
-        Validate.isTrue(isValid(), "Could not save admin entry: " + name + ". Entry not valid!");
+        Preconditions.checkArgument(isValid(), "Could not save admin entry: " + name + ". Entry not valid!");
         cs.set("username", name);
         cs.set("active", active);
         cs.set("rank", rank.toString());
         cs.set("ips", Lists.newArrayList(ips));
         cs.set("last_login", FUtil.dateToString(lastLogin));
         cs.set("login_message", loginMessage);
+        cs.set("custom_rank", customRankId);
     }
 
     public boolean isAtLeast(Rank pRank)
@@ -136,6 +128,87 @@ public class Admin implements ConfigLoadable, ConfigSavable, Validatable
     public void clearIPs()
     {
         ips.clear();
+    }
+
+    // Manual getters - Lombok @Getter not processing
+    public UUID getUuid()
+    {
+        return uuid;
+    }
+    
+    public void setUuid(UUID uuid)
+    {
+        this.uuid = uuid;
+    }
+    
+    public Rank getRank()
+    {
+        return rank;
+    }
+
+    public String getCustomRankId()
+    {
+        return customRankId;
+    }
+
+    public void setCustomRankId(String customRankId)
+    {
+        this.customRankId = customRankId;
+    }
+
+    public String getName()
+    {
+        return name;
+    }
+
+    public List<String> getIps()
+    {
+        return ips;
+    }
+
+    public String getConfigKey()
+    {
+        return configKey;
+    }
+
+    public boolean isActive()
+    {
+        return active;
+    }
+
+    public void setName(String name)
+    {
+        this.name = name;
+    }
+
+    public Date getLastLogin()
+    {
+        return lastLogin;
+    }
+
+    public void setLastLogin(Date lastLogin)
+    {
+        this.lastLogin = lastLogin;
+    }
+
+    public String getLoginMessage()
+    {
+        return loginMessage;
+    }
+
+    public void setRank(Rank rank)
+    {
+        this.rank = rank;
+    }
+
+    public void setLoginMessage(String loginMessage)
+    {
+        this.loginMessage = loginMessage;
+    }
+
+    public void setActive(boolean active)
+    {
+        this.active = active;
     }
 
     @Override

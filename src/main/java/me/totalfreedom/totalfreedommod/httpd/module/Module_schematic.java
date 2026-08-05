@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.admin.Admin;
+import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.httpd.HTMLGenerationTools;
 import me.totalfreedom.totalfreedommod.httpd.HTTPDPageBuilder;
 import me.totalfreedom.totalfreedommod.httpd.HTTPDaemon;
@@ -19,21 +20,20 @@ import me.totalfreedom.totalfreedommod.httpd.NanoHTTPD.Method;
 import me.totalfreedom.totalfreedommod.httpd.NanoHTTPD.Response;
 import me.totalfreedom.totalfreedommod.util.FLog;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringEscapeUtils;
-import org.apache.commons.lang3.StringUtils;
 
 public class Module_schematic extends HTTPDModule
 {
 
-    private static final File SCHEMATIC_FOLDER = new File("./plugins/WorldEdit/schematics/");
+    private static final File FAWE_SCHEM_FOLDER = new File("./plugins/FastAsyncWorldEdit/schematics/");
+    private static final File WE_SCHEM_FOLDER = new File("./plugins/WorldEdit/schematics/");
     private static final String REQUEST_FORM_FILE_ELEMENT_NAME = "schematicFile";
-    private static final Pattern SCHEMATIC_FILENAME_LC = Pattern.compile("^[a-z0-9_'!,\\-]{1,30}\\.schematic$");
+    private static final Pattern SCHEMATIC_FILENAME_LC = Pattern.compile("^[a-z0-9_'!,\\-]{1,30}\\.(schem|schematic)$");
     private static final String[] SCHEMATIC_FILTER = new String[]
     {
-        "schematic"
+        "schem", "schematic"
     };
     private static final String UPLOAD_FORM = "<form method=\"post\" name=\"schematicForm\" id=\"schematicForm\" action=\"/schematic/upload/\" enctype=\"multipart/form-data\">\n"
-            + "<p>Select a schematic file to upload. Filenames must be alphanumeric, between 1 and 30 characters long (inclusive), and have a .schematic extension.</p>\n"
+            + "<p>Select a schematic file to upload. Filenames must be alphanumeric, between 1 and 30 characters long (inclusive), and have a .schem or .schematic extension.</p>\n"
             + "<input type=\"file\" id=\"schematicFile\" name=\"schematicFile\" />\n"
             + "<br />\n"
             + "<button type=\"submit\">Submit</button>\n"
@@ -64,26 +64,27 @@ public class Module_schematic extends HTTPDModule
 
     public String body() throws ResponseOverrideException
     {
-        if (!SCHEMATIC_FOLDER.exists())
+        final File schematicFolder = getSchematicFolder();
+        if (!schematicFolder.exists())
         {
-            return HTMLGenerationTools.paragraph("Can't find the WorldEdit schematic folder.");
+            return HTMLGenerationTools.paragraph("Can't find the schematic folder.");
         }
 
         final StringBuilder out = new StringBuilder();
 
-        final String[] args = StringUtils.split(uri, "/");
+        final String[] args = uri.split("/");
         final ModuleMode mode = ModuleMode.getMode(getArg(args, 1));
 
         switch (mode)
         {
             case LIST:
             {
-                Collection<File> schematics = FileUtils.listFiles(SCHEMATIC_FOLDER, SCHEMATIC_FILTER, false);
+                Collection<File> schematics = FileUtils.listFiles(schematicFolder, SCHEMATIC_FILTER, false);
 
                 final List<String> schematicsFormatted = new ArrayList<>();
                 for (File schematic : schematics)
                 {
-                    String filename = StringEscapeUtils.escapeHtml4(schematic.getName());
+                    String filename = escapeHtml(schematic.getName());
 
                     if (SCHEMATIC_FILENAME_LC.matcher(filename.trim().toLowerCase()).find())
                     {
@@ -107,7 +108,7 @@ public class Module_schematic extends HTTPDModule
                 out
                         .append(HTMLGenerationTools.heading("Schematics:", 1))
                         .append("<ul>")
-                        .append(StringUtils.join(schematicsFormatted, "\r\n"))
+                        .append(String.join("\r\n", schematicsFormatted))
                         .append("</ul>");
 
                 break;
@@ -126,7 +127,7 @@ public class Module_schematic extends HTTPDModule
             }
             case UPLOAD:
             {
-                final String remoteAddress = socket.getInetAddress().getHostAddress();
+                final String remoteAddress = getClientAddress();
                 if (!isAuthorized(remoteAddress))
                 {
                     out.append(HTMLGenerationTools.paragraph("Schematic upload access denied: Your IP, " + remoteAddress + ", is not registered to a superadmin on this server."));
@@ -191,10 +192,10 @@ public class Module_schematic extends HTTPDModule
 
         if (!SCHEMATIC_FILENAME_LC.matcher(origFileName.toLowerCase()).find())
         {
-            throw new SchematicTransferException("File name must be alphanumeric, between 1 and 30 characters long (inclusive), and have a \".schematic\" extension.");
+            throw new SchematicTransferException("File name must be alphanumeric, between 1 and 30 characters long (inclusive), and have a \".schem\" or \".schematic\" extension.");
         }
 
-        final File targetFile = new File(SCHEMATIC_FOLDER.getPath(), origFileName);
+        final File targetFile = new File(getSchematicFolder().getPath(), origFileName);
         if (targetFile.exists())
         {
             throw new SchematicTransferException("Schematic already exists on the server.");
@@ -220,7 +221,7 @@ public class Module_schematic extends HTTPDModule
             throw new SchematicTransferException("Invalid schematic name requested: " + schematicName);
         }
 
-        final File targetFile = new File(SCHEMATIC_FOLDER.getPath(), schematicName);
+        final File targetFile = new File(getSchematicFolder().getPath(), schematicName);
         if (!targetFile.exists())
         {
             throw new SchematicTransferException("Schematic not found: " + schematicName);
@@ -231,6 +232,22 @@ public class Module_schematic extends HTTPDModule
         response.addHeader("Content-Disposition", "attachment; filename=" + targetFile.getName() + ";");
 
         return response;
+    }
+
+    private static File getSchematicFolder()
+    {
+        final String configured = ConfigEntry.HTTPD_SCHEM_FOLDER.getString();
+        if (configured != null && !configured.trim().isEmpty())
+        {
+            return new File(configured.trim());
+        }
+
+        if (FAWE_SCHEM_FOLDER.exists())
+        {
+            return FAWE_SCHEM_FOLDER;
+        }
+
+        return WE_SCHEM_FOLDER;
     }
 
     private boolean isAuthorized(String remoteAddress)

@@ -1,14 +1,14 @@
 package me.totalfreedom.totalfreedommod.command;
 
-import me.libraryaddict.disguise.DisallowedDisguises;
 import me.totalfreedom.totalfreedommod.rank.Rank;
 import me.totalfreedom.totalfreedommod.util.FUtil;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH)
+@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH, permission = "tfm.admin.disguisetoggle")
 @CommandParameters(description = "Toggle the disguise plugin", usage = "/<command>", aliases = "dtoggle")
 public class Command_disguisetoggle extends FreedomCommand
 {
@@ -18,13 +18,16 @@ public class Command_disguisetoggle extends FreedomCommand
     {
         if (!plugin.ldb.isPluginEnabled())
         {
-            msg(ChatColor.RED + "LibsDisguises is not enabled.");
+            msg(Component.text("LibsDisguises is not enabled.", NamedTextColor.RED));
             return true;
         }
 
-        FUtil.adminAction(sender.getName(), (DisallowedDisguises.disabled ? "Enabling" : "Disabling") + " Disguises", false);
+        boolean currentlyEnabled = plugin.ldb.isDisguisesEnabled();
+        String action = currentlyEnabled ? "Disabling" : "Enabling";
 
-        if (plugin.ldb.isDisguisesEnabled())
+        FUtil.adminAction(sender.getName(), action + " Disguises", false);
+
+        if (currentlyEnabled)
         {
             plugin.ldb.undisguiseAll(true);
             plugin.ldb.setDisguisesEnabled(false);
@@ -34,7 +37,7 @@ public class Command_disguisetoggle extends FreedomCommand
             plugin.ldb.setDisguisesEnabled(true);
         }
 
-        msg("Enabled " + (DisallowedDisguises.disabled ? "enabled." : "disabled."));
+        msg("Disguises are now " + (plugin.ldb.isDisguisesEnabled() ? "enabled." : "disabled."));
 
         return true;
     }

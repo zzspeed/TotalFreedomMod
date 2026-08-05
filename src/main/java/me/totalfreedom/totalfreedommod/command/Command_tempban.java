@@ -2,76 +2,90 @@ package me.totalfreedom.totalfreedommod.command;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+
 import me.totalfreedom.totalfreedommod.banning.Ban;
+import me.totalfreedom.totalfreedommod.player.PlayerData;
 import me.totalfreedom.totalfreedommod.rank.Rank;
 import me.totalfreedom.totalfreedommod.util.FUtil;
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH)
-@CommandParameters(description = "Temporarily ban someone.", usage = "/<command> [playername] [duration] [reason]")
+@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH, permission = "tfm.admin.ban")
+@CommandParameters(description = "Temporarily bans an online or previously known player.", usage = "/<command> <player> [duration] [reason] [-rb]")
 public class Command_tempban extends FreedomCommand
 {
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd 'at' HH:mm:ss z");
 
-    private static final SimpleDateFormat date_format = new SimpleDateFormat("yyyy-MM-dd \'at\' HH:mm:ss z");
+    @CommandDispatchTarget(pattern = "<playerName>", switches = "rb")
+    public boolean tempBanPlayer(CommandContext ctx, String player, boolean rollback)
+    {
+        return tempBanPlayer(ctx, player, FUtil.parseDateOffset("30m"), null, rollback);
+    }
+
+    @CommandDispatchTarget(pattern = "<playerName> <duration:DateOffset>", switches = "rb")
+    public boolean tempBanPlayer(CommandContext ctx, String player, Date offset, boolean rollback)
+    {
+        return tempBanPlayer(ctx, player, offset, null, rollback);
+    }
+
+    @CommandDispatchTarget(pattern = "<playerName> <duration:DateOffset> <reason..>", switches = "rb")
+    public boolean tempBanPlayer(CommandContext ctx, String player, Date offset, String reason, boolean rollback)
+    {
+        final Player actualPlayer = (Player) plugin.cl.getHandler().resolveArgument("Player", player, null);
+        final PlayerData playerData = BanCommandUtil.getData(plugin, player, actualPlayer);
+        final Ban ban;
+        final String name;
+
+        // If we can't find a player here, we'll just fumble a solution with names.
+        if (actualPlayer == null && playerData == null)
+        {
+            ban = Ban.forPlayerName(player, ctx.getSender(), offset, reason);
+            name = player;
+        }
+        else
+        {
+            name = BanCommandUtil.getCanonicalName(player, actualPlayer, playerData);
+            List<String> ips = BanCommandUtil.getIps(actualPlayer, playerData);
+            ban = BanCommandUtil.createFullBan(name, ips, ctx.getPlayerSender(), offset, reason);
+        }
+
+        FUtil.adminAction(ctx.getSender().getName(),
+                "Temporarily banning " + name + " until " + DATE_FORMAT.format(offset), true);
+
+        plugin.bm.addBan(ban);
+
+        server.getOnlinePlayers().stream()
+                .filter(suspect -> suspect.equals(actualPlayer) ||
+                        ban.getIps().contains(Objects.requireNonNull(suspect.getAddress()).getAddress().getHostAddress()))
+                .forEach(target ->
+                {
+                    Location loc = target.getLocation();
+                    for (int x = -1; x <= 1; x++)
+                    {
+                        for (int z = -1; z <= 1; z++)
+                        {
+                            loc.getWorld().strikeLightning(new Location(loc.getWorld(),
+                                    loc.getBlockX() + x, loc.getBlockY(), loc.getBlockZ() + z));
+                        }
+                    }
+                    target.kick(ban.bakeKickMessage());
+                });
+
+        if (rollback)
+        {
+            plugin.cpb.rollback(name);
+        }
+
+        return true;
+    }
 
     @Override
     public boolean run(CommandSender sender, Player playerSender, Command cmd, String commandLabel, String[] args, boolean senderIsConsole)
     {
-        if (args.length < 1)
-        {
-            return false;
-        }
-
-        final Player player = getPlayer(args[0]);
-
-        if (player == null)
-        {
-            msg(FreedomCommand.PLAYER_NOT_FOUND);
-            return true;
-        }
-
-        final StringBuilder message = new StringBuilder("Temporarily banned " + player.getName());
-
-        Date expires = FUtil.parseDateOffset("30m");
-        if (args.length >= 2)
-        {
-            Date parsed_offset = FUtil.parseDateOffset(args[1]);
-            if (parsed_offset != null)
-            {
-                expires = parsed_offset;
-            }
-        }
-        message.append(" until ").append(date_format.format(expires));
-
-        String reason = "Banned by " + sender.getName();
-        if (args.length >= 3)
-        {
-            reason = StringUtils.join(ArrayUtils.subarray(args, 2, args.length), " ") + " (" + sender.getName() + ")";
-            message.append(", Reason: \"").append(reason).append("\"");
-        }
-
-        // strike with lightning effect:
-        final Location targetPos = player.getLocation();
-        for (int x = -1; x <= 1; x++)
-        {
-            for (int z = -1; z <= 1; z++)
-            {
-                final Location strike_pos = new Location(targetPos.getWorld(), targetPos.getBlockX() + x, targetPos.getBlockY(), targetPos.getBlockZ() + z);
-                targetPos.getWorld().strikeLightning(strike_pos);
-            }
-        }
-
-        FUtil.adminAction(sender.getName(), message.toString(), true);
-
-        plugin.bm.addBan(Ban.forPlayer(player, sender, expires, reason));
-
-        player.kickPlayer(sender.getName() + " - " + message.toString());
-
-        return true;
+        return false;
     }
 }

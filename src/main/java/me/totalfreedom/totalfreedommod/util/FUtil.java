@@ -1,8 +1,14 @@
 package me.totalfreedom.totalfreedommod.util;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileFilter;
+import java.io.InputStreamReader;
 import java.lang.reflect.Field;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -16,13 +22,16 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.ansi.ANSIComponentSerializer;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
@@ -33,33 +42,23 @@ public class FUtil
 {
 
     private static final Random RANDOM = new Random();
-    //
-    public static final String SAVED_FLAGS_FILENAME = "savedflags.dat";
     // See https://github.com/TotalFreedom/License - None of the listed names may be removed.
-    public static final List<String> DEVELOPERS = Arrays.asList("Madgeek1450", "Prozza", "Wild1145", "WickedGamingUK", "aggelosQQ");
+    public static final List<String> DEVELOPERS = Arrays.asList("Madgeek1450", "Prozza", "Wild1145", "WickedGamingUK", "aggelosQQ", "aokod", "rptt", "ERR_666");
     public static String DATE_STORAGE_FORMAT = "EEE, d MMM yyyy HH:mm:ss Z";
-    public static final Map<String, ChatColor> CHAT_COLOR_NAMES = new HashMap<>();
-    public static final List<ChatColor> CHAT_COLOR_POOL = Arrays.asList(
-            ChatColor.DARK_BLUE,
-            ChatColor.DARK_GREEN,
-            ChatColor.DARK_AQUA,
-            ChatColor.DARK_RED,
-            ChatColor.DARK_PURPLE,
-            ChatColor.GOLD,
-            ChatColor.BLUE,
-            ChatColor.GREEN,
-            ChatColor.AQUA,
-            ChatColor.RED,
-            ChatColor.LIGHT_PURPLE,
-            ChatColor.YELLOW);
-
-    static
-    {
-        for (ChatColor chatColor : CHAT_COLOR_POOL)
-        {
-            CHAT_COLOR_NAMES.put(chatColor.name().toLowerCase().replace("_", ""), chatColor);
-        }
-    }
+    public static final Map<String, NamedTextColor> CHAT_COLOR_NAMES = new HashMap<>();
+    public static final List<NamedTextColor> CHAT_COLOR_POOL = Arrays.asList(
+            NamedTextColor.DARK_BLUE,
+            NamedTextColor.DARK_GREEN,
+            NamedTextColor.DARK_AQUA,
+            NamedTextColor.DARK_RED,
+            NamedTextColor.DARK_PURPLE,
+            NamedTextColor.GOLD,
+            NamedTextColor.BLUE,
+            NamedTextColor.GREEN,
+            NamedTextColor.AQUA,
+            NamedTextColor.RED,
+            NamedTextColor.LIGHT_PURPLE,
+            NamedTextColor.YELLOW);
 
     private FUtil()
     {
@@ -81,31 +80,45 @@ public class FUtil
         }
     }
 
-    public static void bcastMsg(String message, ChatColor color)
+    public static void bcastMsg(Component component)
     {
-        FLog.info(message, true);
+        // Serialize to ANSI for console, Component for players
+        String ansiMessage = ANSIComponentSerializer.ansi().serialize(component);
+        Bukkit.getConsoleSender().sendMessage(ansiMessage);
 
         for (Player player : Bukkit.getOnlinePlayers())
         {
-            player.sendMessage((color == null ? "" : color) + message);
+            player.sendMessage(component);
         }
+    }
+
+    public static void bcastMsg(String message, NamedTextColor color)
+    {
+        bcastMsg(colorizeWithLinks(message, color));
     }
 
     public static void bcastMsg(String message)
     {
-        FUtil.bcastMsg(message, null);
+        bcastMsg(colorizeWithLinks(message));
     }
 
-    // Still in use by listeners
-    public static void playerMsg(CommandSender sender, String message, ChatColor color)
+    public static void playerMsg(CommandSender sender, Component component)
     {
-        sender.sendMessage(color + message);
+        if (sender == null || component == null)
+        {
+            return;
+        }
+        sender.sendMessage(component);
     }
 
-    // Still in use by listeners
+    public static void playerMsg(CommandSender sender, String message, NamedTextColor color)
+    {
+        playerMsg(sender, colorizeWithLinks(message, color));
+    }
+
     public static void playerMsg(CommandSender sender, String message)
     {
-        FUtil.playerMsg(sender, message, ChatColor.GRAY);
+        playerMsg(sender, message, NamedTextColor.GRAY);
     }
 
     public static void setFlying(Player player, boolean flying)
@@ -116,7 +129,14 @@ public class FUtil
 
     public static void adminAction(String adminName, String action, boolean isRed)
     {
-        FUtil.bcastMsg(adminName + " - " + action, (isRed ? ChatColor.RED : ChatColor.AQUA));
+        FUtil.bcastMsg(adminName + " - " + action, (isRed ? NamedTextColor.RED : NamedTextColor.AQUA));
+    }
+
+    public static void adminAction(String adminName, Component action, NamedTextColor color)
+    {
+        FUtil.bcastMsg(Component.text(adminName, color)
+                .append(Component.text(" - "))
+                .append(action));
     }
 
     public static String formatLocation(Location location)
@@ -139,14 +159,7 @@ public class FUtil
 
     public static void deleteCoreDumps()
     {
-        final File[] coreDumps = new File(".").listFiles(new FileFilter()
-        {
-            @Override
-            public boolean accept(File file)
-            {
-                return file.getName().startsWith("java.core");
-            }
-        });
+        final File[] coreDumps = new File(".").listFiles(file -> file.getName().startsWith("java.core"));
 
         for (File dump : coreDumps)
         {
@@ -155,17 +168,18 @@ public class FUtil
         }
     }
 
+    private static final Pattern TIME_PATTERN = Pattern.compile(
+            "(?:([0-9]+)\\s*y[a-z]*[,\\s]*)?"
+            + "(?:([0-9]+)\\s*mo[a-z]*[,\\s]*)?"
+            + "(?:([0-9]+)\\s*w[a-z]*[,\\s]*)?"
+            + "(?:([0-9]+)\\s*d[a-z]*[,\\s]*)?"
+            + "(?:([0-9]+)\\s*h[a-z]*[,\\s]*)?"
+            + "(?:([0-9]+)\\s*m[a-z]*[,\\s]*)?"
+            + "(?:([0-9]+)\\s*(?:s[a-z]*)?)?", Pattern.CASE_INSENSITIVE);
+
     public static Date parseDateOffset(String time)
     {
-        Pattern timePattern = Pattern.compile(
-                "(?:([0-9]+)\\s*y[a-z]*[,\\s]*)?"
-                + "(?:([0-9]+)\\s*mo[a-z]*[,\\s]*)?"
-                + "(?:([0-9]+)\\s*w[a-z]*[,\\s]*)?"
-                + "(?:([0-9]+)\\s*d[a-z]*[,\\s]*)?"
-                + "(?:([0-9]+)\\s*h[a-z]*[,\\s]*)?"
-                + "(?:([0-9]+)\\s*m[a-z]*[,\\s]*)?"
-                + "(?:([0-9]+)\\s*(?:s[a-z]*)?)?", Pattern.CASE_INSENSITIVE);
-        Matcher m = timePattern.matcher(time);
+        Matcher m = TIME_PATTERN.matcher(time);
         int years = 0;
         int months = 0;
         int weeks = 0;
@@ -190,34 +204,13 @@ public class FUtil
             }
             if (found)
             {
-                if (m.group(1) != null && !m.group(1).isEmpty())
-                {
-                    years = Integer.parseInt(m.group(1));
-                }
-                if (m.group(2) != null && !m.group(2).isEmpty())
-                {
-                    months = Integer.parseInt(m.group(2));
-                }
-                if (m.group(3) != null && !m.group(3).isEmpty())
-                {
-                    weeks = Integer.parseInt(m.group(3));
-                }
-                if (m.group(4) != null && !m.group(4).isEmpty())
-                {
-                    days = Integer.parseInt(m.group(4));
-                }
-                if (m.group(5) != null && !m.group(5).isEmpty())
-                {
-                    hours = Integer.parseInt(m.group(5));
-                }
-                if (m.group(6) != null && !m.group(6).isEmpty())
-                {
-                    minutes = Integer.parseInt(m.group(6));
-                }
-                if (m.group(7) != null && !m.group(7).isEmpty())
-                {
-                    seconds = Integer.parseInt(m.group(7));
-                }
+                years = parseGroup(m, 1);
+                months = parseGroup(m, 2);
+                weeks = parseGroup(m, 3);
+                days = parseGroup(m, 4);
+                hours = parseGroup(m, 5);
+                minutes = parseGroup(m, 6);
+                seconds = parseGroup(m, 7);
                 break;
             }
         }
@@ -260,6 +253,16 @@ public class FUtil
         return c.getTime();
     }
 
+    private static int parseGroup(Matcher m, int group)
+    {
+        String value = m.group(group);
+        if (value != null && !value.isEmpty())
+        {
+            return Integer.parseInt(value);
+        }
+        return 0;
+    }
+
     public static String playerListToNames(Set<OfflinePlayer> players)
     {
         List<String> names = new ArrayList<>();
@@ -267,7 +270,7 @@ public class FUtil
         {
             names.add(player.getName());
         }
-        return StringUtils.join(names, ", ");
+        return String.join(", ", names);
     }
 
     public static String dateToString(Date date)
@@ -285,11 +288,6 @@ public class FUtil
         {
             return new Date(0L);
         }
-    }
-
-    public static boolean isFromHostConsole(String senderName)
-    {
-        return ConfigEntry.HOST_SENDER_NAMES.getList().contains(senderName.toLowerCase());
     }
 
     public static boolean fuzzyIpMatch(String a, String b, int octets)
@@ -341,6 +339,28 @@ public class FUtil
         return ip;
     }
 
+    /**
+     * Returns the IP masked to the form "192.168.*.*" when {@code mask_ips} is enabled
+     * in config and the sender lacks {@code tfm.manage.showips}, otherwise returns IP unchanged.
+     */
+    public static String sanitizeIp(CommandSender sender, String ip)
+    {
+        if (ip == null || ip.isEmpty())
+        {
+            return ip;
+        }
+        if (!ConfigEntry.MASK_IPS.getBoolean())
+        {
+            return ip;
+        }
+        if (sender != null && TotalFreedomMod.plugin().rm != null
+                && TotalFreedomMod.plugin().rm.hasPermission(sender, "tfm.manage.showips"))
+        {
+            return ip;
+        }
+        return getFuzzyIp(ip);
+    }
+
     //getField: Borrowed from WorldEdit
     @SuppressWarnings("unchecked")
     public static <T> T getField(Object from, String name)
@@ -364,14 +384,30 @@ public class FUtil
         return null;
     }
 
-    public static ChatColor randomChatColor()
+    public static NamedTextColor randomChatColor()
     {
         return CHAT_COLOR_POOL.get(RANDOM.nextInt(CHAT_COLOR_POOL.size()));
     }
 
-    public static String colorize(String string)
+    public static Component colorize(String string)
     {
-        return ChatColor.translateAlternateColorCodes('&', string);
+        return AdventureUtil.format(string);
+    }
+
+    public static Component colorize(String string, NamedTextColor defaultColor)
+    {
+        Component component = colorize(string);
+        return defaultColor == null ? component : component.colorIfAbsent(defaultColor);
+    }
+
+    public static Component colorizeWithLinks(String string)
+    {
+        return AdventureUtil.addLinks(colorize(string));
+    }
+
+    public static Component colorizeWithLinks(String string, NamedTextColor defaultColor)
+    {
+        return AdventureUtil.addLinks(colorize(string, defaultColor));
     }
 
     public static Date getUnixDate(long unix)
@@ -400,4 +436,199 @@ public class FUtil
         return packageName.substring(packageName.lastIndexOf('.') + 1);
     }
 
+    // ============================================
+    // UUID Utilities
+    // ============================================
+
+    private static final String MOJANG_API_URL = "https://api.minecraftservices.com/minecraft/profile/lookup/name/";
+    private static final Map<String, UUID> UUID_CACHE = new HashMap<>();
+
+    /**
+     * Converts a username to a UUID: online players first, then Mojang HTTP if {@code adminlist.mojang_uuid_lookup} is true.
+     *
+     * @param username The player's username
+     * @return The player's UUID, or null if not found, Mojang lookup disabled, or an error occurred
+     */
+    public static UUID usernameToUuid(String username)
+    {
+        if (username == null || username.isEmpty())
+        {
+            return null;
+        }
+
+        // Check cache first
+        String lowerName = username.toLowerCase();
+        if (UUID_CACHE.containsKey(lowerName))
+        {
+            return UUID_CACHE.get(lowerName);
+        }
+
+        // Check if player is online
+        Player onlinePlayer = Bukkit.getPlayerExact(username);
+        if (onlinePlayer != null)
+        {
+            UUID_CACHE.put(lowerName, onlinePlayer.getUniqueId());
+            return onlinePlayer.getUniqueId();
+        }
+
+        Boolean mojangLookup = ConfigEntry.ADMINLIST_MOJANG_UUID_LOOKUP.getBoolean();
+        if (Boolean.FALSE.equals(mojangLookup))
+        {
+            return null;
+        }
+
+        try
+        {
+            URL url = new URI(MOJANG_API_URL + username).toURL();
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode == 200)
+            {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null)
+                {
+                    response.append(line);
+                }
+                reader.close();
+
+                JsonObject json = JsonParser.parseString(response.toString()).getAsJsonObject();
+                String uuidString = json.get("id").getAsString();
+                UUID uuid = parseUuidFromMojangFormat(uuidString);
+                UUID_CACHE.put(lowerName, uuid);
+                return uuid;
+            }
+            else if (responseCode == 204 || responseCode == 404)
+            {
+                // Player not found
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            FLog.warning("Failed to fetch UUID for " + username + ": " + ex.getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Parses a UUID from Mojang's format (without dashes) to a standard UUID.
+     *
+     * @param mojangUuid The UUID string without dashes (32 characters)
+     * @return The parsed UUID
+     */
+    public static UUID parseUuidFromMojangFormat(String mojangUuid)
+    {
+        if (mojangUuid == null || mojangUuid.length() != 32)
+        {
+            throw new IllegalArgumentException("Invalid Mojang UUID format: " + mojangUuid);
+        }
+
+        String formatted = mojangUuid.substring(0, 8) + "-"
+                + mojangUuid.substring(8, 12) + "-"
+                + mojangUuid.substring(12, 16) + "-"
+                + mojangUuid.substring(16, 20) + "-"
+                + mojangUuid.substring(20, 32);
+
+        return UUID.fromString(formatted);
+    }
+
+    /**
+     * Safely parses a UUID from a string, handling both standard and Mojang formats.
+     *
+     * @param uuidString The UUID string (with or without dashes)
+     * @return The parsed UUID, or null if invalid
+     */
+    public static UUID parseUuid(String uuidString)
+    {
+        if (uuidString == null || uuidString.isEmpty())
+        {
+            return null;
+        }
+
+        try
+        {
+            // Standard format with dashes
+            if (uuidString.contains("-"))
+            {
+                return UUID.fromString(uuidString);
+            }
+            // Mojang format without dashes
+            else if (uuidString.length() == 32)
+            {
+                return parseUuidFromMojangFormat(uuidString);
+            }
+        }
+        catch (IllegalArgumentException ex)
+        {
+            FLog.warning("Failed to parse UUID: " + uuidString);
+        }
+
+        return null;
+    }
+
+    /**
+     * Converts a UUID to Mojang's format (without dashes).
+     *
+     * @param uuid The UUID to convert
+     * @return The UUID string without dashes
+     */
+    public static String uuidToMojangFormat(UUID uuid)
+    {
+        if (uuid == null)
+        {
+            return null;
+        }
+        return uuid.toString().replace("-", "");
+    }
+
+    /**
+     * Clears the UUID cache. Useful for testing or when cache needs to be refreshed.
+     */
+    public static void clearUuidCache()
+    {
+        UUID_CACHE.clear();
+    }
+
+    public static Object stringToObject(String input)
+    {
+        // Numbers
+        if (input.toLowerCase().matches("[0-9]+[ls]?"))
+        {
+            try
+            {
+                // Expect long
+                if (input.toLowerCase().endsWith("l"))
+                {
+                    return Long.parseLong(input.substring(0, input.length() - 1));
+                }
+                // Expect short
+                else if (input.toLowerCase().endsWith("s"))
+                {
+                    return Short.parseShort(input);
+                }
+
+                // Expect integer
+                return Integer.parseInt(input);
+            }
+            catch (NumberFormatException _)
+            {
+                // Fail quietly, we'll just make it a string instead
+            }
+        }
+
+        // Booleans
+        if (input.equalsIgnoreCase("true") || input.equalsIgnoreCase("false"))
+        {
+            return Boolean.parseBoolean(input);
+        }
+
+        return input;
+    }
 }

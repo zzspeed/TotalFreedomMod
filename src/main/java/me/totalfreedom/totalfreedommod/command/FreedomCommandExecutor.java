@@ -1,70 +1,96 @@
 package me.totalfreedom.totalfreedommod.command;
 
-import java.util.Arrays;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
+import me.totalfreedom.totalfreedommod.rank.CustomRank;
 import me.totalfreedom.totalfreedommod.rank.Rank;
+import me.totalfreedom.totalfreedommod.dispatch.RemoteDispatchContext;
+import me.totalfreedom.totalfreedommod.dispatch.RemoteDispatchSession;
 import me.totalfreedom.totalfreedommod.util.FLog;
-import me.totalfreedom.totalfreedommod.util.FUtil;
-import net.pravian.aero.command.AeroCommandBase;
-import net.pravian.aero.command.executor.AbstractCommandExecutor;
-import net.pravian.aero.command.executor.AeroCommandExecutor;
-import net.pravian.aero.command.executor.AeroCommandExecutorFactory;
-import net.pravian.aero.command.handler.AeroCommandHandler;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 
-public class FreedomCommandExecutor<C extends AeroCommandBase<?>> extends AbstractCommandExecutor<C>
+import java.util.List;
+
+public class FreedomCommandExecutor implements CommandExecutor
 {
 
     private final TotalFreedomMod plugin;
+    private final CommandHandler<?> handler;
+    private final String name;
+    private final AbstractCommandBase<?> commandBase;
 
-    public FreedomCommandExecutor(TotalFreedomMod plugin, AeroCommandHandler<?> handler, String name, C command)
+    public FreedomCommandExecutor(TotalFreedomMod plugin, CommandHandler<?> handler, String name, AbstractCommandBase<?> command)
     {
-        super(handler, name, command);
         this.plugin = plugin;
+        this.handler = handler;
+        this.name = name;
+        this.commandBase = command;
     }
 
-    protected FreedomCommand getCommand()
+    FreedomCommand getCommand()
     {
         return commandBase instanceof FreedomCommand ? (FreedomCommand) commandBase : null;
     }
 
-    @Override
-    public void setupCommand(PluginCommand pluginCommand)
+    public void executePaper(CommandSender sender, String label, String[] args)
     {
-        final FreedomCommand command = getCommand();
+        if (!hasPermission(sender, true))
+        {
+            return;
+        }
+        Command command = plugin.getServer().getPluginCommand(label);
         if (command == null)
         {
-            return;
+            command = plugin.getServer().getPluginCommand(name);
         }
-
-        final CommandParameters params = command.getParams();
-        if (params == null)
+        if (command == null)
         {
-            return;
+            command = new FallbackCommand(name);
         }
-
-        String aliasString = params.aliases();
-
-        if (aliasString.length() > 0)
+        try
         {
-            pluginCommand.setAliases(Arrays.asList(params.aliases().split(",")));
-        }
-        pluginCommand.setDescription(params.description());
-        pluginCommand.setUsage(params.usage());
-
-        // Check if permisions are correctly set up
-        CommandPermissions perms = command.getPerms();
-        if (perms != null)
-        {
-            if (perms.level().isConsole())
+            boolean handled = commandBase.runCommand(sender, command, label, args);
+            if (!handled)
             {
-                FLog.warning("[Command] " + pluginCommand.getName() + " - permission is set to a console rank, "
-                        + "should be set to player variant with 'source = SourceType.ONLY_CONSOLE'");
+                FreedomCommand freedomCommand = getCommand();
+                if (freedomCommand != null && freedomCommand.getParams() != null)
+                {
+                    String usage = freedomCommand.getParams().usage();
+                    if (usage != null && !usage.isEmpty())
+                    {
+                        sender.sendMessage(Component.text("Usage: " + usage.replace("<command>", label), NamedTextColor.RED));
+                    }
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            FLog.severe("Unhandled command exception: " + label);
+            FLog.severe(ex);
+            sender.sendMessage(Component.text("Unhandled Command Error: " + label, NamedTextColor.RED));
+        }
+    }
+
+    List<String> tabComplete(CommandSender sender, String label, String[] args)
+    {
+        if (!hasPermission(sender, false))
+        {
+            return List.of();
+        }
+
+        try
+        {
+            return commandBase.tabComplete(sender, label, args);
+        }
+        catch (Exception ex)
+        {
+            FLog.warning("Unhandled tab-completion exception: " + label);
+            FLog.warning(ex);
+            return List.of();
         }
     }
 
@@ -75,22 +101,19 @@ public class FreedomCommandExecutor<C extends AeroCommandBase<?>> extends Abstra
         {
             return true;
         }
-
         try
         {
             return commandBase.runCommand(sender, command, label, args);
         }
         catch (Exception ex)
         {
-            // If this is ever ran, TFM failed :
             FLog.severe("Unhandled command exception: " + command.getName());
             FLog.severe(ex);
-            sender.sendMessage(ChatColor.RED + "Unhandled Command Error: " + command.getName());
+            sender.sendMessage(Component.text("Unhandled Command Error: " + command.getName(), NamedTextColor.RED));
             return true;
         }
     }
 
-    @Override
     public boolean hasPermission(CommandSender sender, boolean sendMsg)
     {
         final FreedomCommand command = getCommand();
@@ -105,22 +128,46 @@ public class FreedomCommandExecutor<C extends AeroCommandBase<?>> extends Abstra
             return true;
         }
 
-        // Block host console
-        if (FUtil.isFromHostConsole(sender.getName())
-                && perms.blockHostConsole())
+        RemoteDispatchSession dispatch = RemoteDispatchContext.getActiveSession();
+        if (dispatch != null)
         {
-            if (sendMsg)
+            if (dispatch.isIdentified())
             {
-                sender.sendMessage(handler.getPermissionMessage());
+                String permNode = switch (dispatch.getChannel())
+                {
+                    case SSH -> "tfm.manage.ssh";
+                    case DISCORD -> "tfm.manage.discord";
+                };
+                String channelLabel = switch (dispatch.getChannel())
+                {
+                    case SSH -> "SSH";
+                    case DISCORD -> "Discord";
+                };
+                if (!plugin.rm.hasPermission(sender, permNode))
+                {
+                    if (sendMsg)
+                    {
+                        sender.sendMessage(Component.text("You do not have permission to run commands via " + channelLabel + ".", NamedTextColor.RED));
+                    }
+                    return false;
+                }
             }
-            return false;
+        }
+        else if (!(sender instanceof Player) && plugin.al.getEntryByName(sender.getName()) != null)
+        {
+            if (!plugin.rm.hasPermission(sender, "tfm.manage.telnet"))
+            {
+                if (sendMsg)
+                {
+                    sender.sendMessage(Component.text("You do not have permission to run commands via telnet.", NamedTextColor.RED));
+                }
+                return false;
+            }
         }
 
         final Player player = sender instanceof Player ? (Player) sender : null;
 
-        // Only console
-        if (perms.source() == SourceType.ONLY_CONSOLE
-                && player != null)
+        if (perms.source() == SourceType.ONLY_CONSOLE && player != null)
         {
             if (sendMsg)
             {
@@ -129,9 +176,7 @@ public class FreedomCommandExecutor<C extends AeroCommandBase<?>> extends Abstra
             return false;
         }
 
-        // Only in game
-        if (perms.source() == SourceType.ONLY_IN_GAME
-                && player == null)
+        if (perms.source() == SourceType.ONLY_IN_GAME && player == null)
         {
             if (sendMsg)
             {
@@ -140,7 +185,17 @@ public class FreedomCommandExecutor<C extends AeroCommandBase<?>> extends Abstra
             return false;
         }
 
-        // Player permissions
+        String tfmPermission = perms.permission();
+        if (tfmPermission != null && !tfmPermission.isEmpty())
+        {
+            boolean result = plugin.rm.hasPermission(sender, tfmPermission);
+            if (!result && sendMsg)
+            {
+                sender.sendMessage(handler.getPermissionMessage());
+            }
+            return result;
+        }
+
         if (player != null)
         {
             Rank rank = plugin.rm.getRank(player);
@@ -152,9 +207,22 @@ public class FreedomCommandExecutor<C extends AeroCommandBase<?>> extends Abstra
             return result;
         }
 
-        // Console permissions
         Rank rank = plugin.rm.getRank(sender);
-        boolean result = rank.isAtLeast(perms.level());
+        CustomRank boundCustom = null;
+        if (!RemoteDispatchContext.isActive())
+        {
+            String boundRankId = plugin.csr.getRankIdForSender(sender.getName());
+            boundCustom = boundRankId != null ? plugin.rm.getCustomRank(boundRankId) : null;
+        }
+        boolean result;
+        if (boundCustom != null)
+        {
+            result = boundCustom.isAtLeast(perms.level());
+        }
+        else
+        {
+            result = rank.isAtLeast(perms.level());
+        }
         if (!result && sendMsg)
         {
             sender.sendMessage(handler.getPermissionMessage());
@@ -162,7 +230,7 @@ public class FreedomCommandExecutor<C extends AeroCommandBase<?>> extends Abstra
         return result;
     }
 
-    public static class FreedomExecutorFactory implements AeroCommandExecutorFactory
+    public static class FreedomExecutorFactory implements CommandHandler.CommandExecutorFactory
     {
 
         private final TotalFreedomMod plugin;
@@ -173,11 +241,24 @@ public class FreedomCommandExecutor<C extends AeroCommandBase<?>> extends Abstra
         }
 
         @Override
-        public AeroCommandExecutor<? extends AeroCommandBase<?>> newExecutor(AeroCommandHandler<?> handler, String name, AeroCommandBase<?> command)
+        public CommandExecutor newExecutor(CommandHandler<?> handler, String name, AbstractCommandBase<?> command)
         {
-            return new FreedomCommandExecutor<>(plugin, handler, name, command);
+            return new FreedomCommandExecutor(plugin, handler, name, command);
         }
 
     }
 
+    private static final class FallbackCommand extends Command
+    {
+        private FallbackCommand(String name)
+        {
+            super(name);
+        }
+
+        @Override
+        public boolean execute(CommandSender sender, String commandLabel, String[] args)
+        {
+            return false;
+        }
+    }
 }

@@ -10,7 +10,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH)
+@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH, permission = "tfm.admin.cage")
 @CommandParameters(description = "Place a cage around someone.", usage = "/<command> <purge | off | <partialname> [outermaterial] [innermaterial]>")
 public class Command_cage extends FreedomCommand
 {
@@ -48,7 +48,7 @@ public class Command_cage extends FreedomCommand
 
         if (player == null)
         {
-            sender.sendMessage(FreedomCommand.PLAYER_NOT_FOUND);
+            msg(FreedomCommand.PLAYER_NOT_FOUND);
             return true;
         }
 
@@ -70,11 +70,11 @@ public class Command_cage extends FreedomCommand
             {
                 if ("darth".equalsIgnoreCase(args[1]))
                 {
-                    outerMaterial = Material.SKULL;
+                    outerMaterial = Material.PLAYER_HEAD;
                 }
-                else if (Material.matchMaterial(args[1]) != null)
+                else if (me.totalfreedom.totalfreedommod.util.MaterialHelper.getMaterial(args[1]) != null)
                 {
-                    outerMaterial = Material.matchMaterial(args[1]);
+                    outerMaterial = me.totalfreedom.totalfreedommod.util.MaterialHelper.getMaterial(args[1]);
                 }
             }
         }
@@ -83,11 +83,11 @@ public class Command_cage extends FreedomCommand
         {
             if (args[2].equalsIgnoreCase("water"))
             {
-                innerMaterial = Material.STATIONARY_WATER;
+                innerMaterial = Material.WATER;
             }
             else if (args[2].equalsIgnoreCase("lava"))
             {
-                innerMaterial = Material.STATIONARY_LAVA;
+                innerMaterial = Material.LAVA;
             }
         }
 
@@ -96,7 +96,7 @@ public class Command_cage extends FreedomCommand
 
         player.setGameMode(GameMode.SURVIVAL);
 
-        if (outerMaterial != Material.SKULL)
+        if (outerMaterial != Material.PLAYER_HEAD)
         {
             FUtil.adminAction(sender.getName(), "Caging " + player.getName(), true);
         }

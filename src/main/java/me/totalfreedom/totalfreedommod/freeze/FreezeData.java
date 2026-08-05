@@ -3,13 +3,13 @@ package me.totalfreedom.totalfreedommod.freeze;
 import lombok.Getter;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.player.FPlayer;
+import me.totalfreedom.totalfreedommod.player.PlayerData;
 import static me.totalfreedom.totalfreedommod.player.FPlayer.AUTO_PURGE_TICKS;
 import me.totalfreedom.totalfreedommod.util.FLog;
 import me.totalfreedom.totalfreedommod.util.FUtil;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 public class FreezeData
@@ -40,6 +40,13 @@ public class FreezeData
             return;
         }
 
+        final PlayerData data = fPlayer.getPlugin().pl.getData(player);
+        if (data.isFrozen() != freeze)
+        {
+            data.setFrozen(freeze);
+            fPlayer.getPlugin().pl.saveData(data);
+        }
+
         FUtil.cancel(unfreeze);
         unfreeze = null;
         location = null;
@@ -62,16 +69,11 @@ public class FreezeData
             return; // Don't run unfreeze task for impostors
         }
 
-        unfreeze = new BukkitRunnable()
+        unfreeze = fPlayer.getPlugin().getServer().getScheduler().runTaskLater(fPlayer.getPlugin(), () ->
         {
-            @Override
-            public void run()
-            {
-                FUtil.adminAction("TotalFreedom", "Unfreezing " + player.getName(), false);
-                setFrozen(false);
-            }
-
-        }.runTaskLater(fPlayer.getPlugin(), AUTO_PURGE_TICKS);
+            FUtil.adminAction("TotalFreedom", "Unfreezing " + player.getName(), false);
+            setFrozen(false);
+        }, AUTO_PURGE_TICKS);
     }
 
 }

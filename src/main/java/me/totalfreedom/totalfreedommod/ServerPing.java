@@ -1,9 +1,11 @@
 package me.totalfreedom.totalfreedommod;
 
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
+import me.totalfreedom.totalfreedommod.util.AdventureUtil;
 import me.totalfreedom.totalfreedommod.util.FUtil;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.server.ServerListPingEvent;
@@ -33,46 +35,47 @@ public class ServerPing extends FreedomService
 
         if (plugin.bm.isIpBanned(ip))
         {
-            event.setMotd(ChatColor.RED + "You are banned.");
+            event.motd(Component.text("You are banned.", NamedTextColor.RED));
             return;
         }
 
         if (ConfigEntry.ADMIN_ONLY_MODE.getBoolean())
         {
-            event.setMotd(ChatColor.RED + "Server is closed.");
+            event.motd(Component.text("Server is closed.", NamedTextColor.RED));
             return;
         }
 
         if (Bukkit.hasWhitelist())
         {
-            event.setMotd(ChatColor.RED + "Whitelist enabled.");
+            event.motd(Component.text("Whitelist enabled.", NamedTextColor.RED));
             return;
         }
 
         if (Bukkit.getOnlinePlayers().size() >= Bukkit.getMaxPlayers())
         {
-            event.setMotd(ChatColor.RED + "Server is full.");
+            event.motd(Component.text("Server is full.", NamedTextColor.RED));
             return;
         }
 
-        String baseMotd = ConfigEntry.SERVER_MOTD.getString().replace("%mcversion%", plugin.si.getVersion());
+//        String baseMotd = ConfigEntry.SERVER_MOTD.getString().replace("%mcversion%", plugin.si.getVersion());
+        String baseMotd = ConfigEntry.SERVER_MOTD.getString();
         baseMotd = baseMotd.replace("\\n", "\n");
-        baseMotd = FUtil.colorize(baseMotd);
+        baseMotd = AdventureUtil.componentToLegacySection(FUtil.colorize(baseMotd));
 
         if (!ConfigEntry.SERVER_COLORFUL_MOTD.getBoolean())
         {
-            event.setMotd(baseMotd);
+            event.motd(FUtil.colorize(baseMotd));
             return;
         }
 
         // Colorful MOTD
-        final StringBuilder motd = new StringBuilder();
+        Component motd = Component.empty();
         for (String word : baseMotd.split(" "))
         {
-            motd.append(FUtil.randomChatColor()).append(word).append(" ");
+            NamedTextColor color = FUtil.randomChatColor();
+            motd = motd.append(Component.text(word + " ", color != null ? color : NamedTextColor.WHITE));
         }
 
-        event.setMotd(motd.toString().trim());
+        event.motd(motd);
     }
-
 }

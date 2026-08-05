@@ -1,9 +1,10 @@
 package me.totalfreedom.totalfreedommod.command;
 
+import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.rank.Rank;
 import me.totalfreedom.totalfreedommod.util.FUtil;
-import org.apache.commons.lang3.StringUtils;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -11,50 +12,28 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH)
+@CommandPermissions(level = Rank.SUPER_ADMIN, source = SourceType.BOTH, permission = "tfm.fun.smite")
 @CommandParameters(description = "Someone being a little bitch? Smite them down...", usage = "/<command> <player> [reason]")
 public class Command_smite extends FreedomCommand
 {
 
-    @Override
-    public boolean run(CommandSender sender, Player playerSender, Command cmd, String commandLabel, String[] args, boolean senderIsConsole)
+    @CommandDispatchTarget(pattern = "<player:Player> <reason..>")
+    public boolean smite(CommandContext ctx, Player player, String reason)
     {
-        if (args.length < 1)
+        if (plugin.al.isAdmin(player))
         {
-            return false;
-        }
-
-        final Player player = getPlayer(args[0]);
-
-        String reason = null;
-        if (args.length > 1)
-        {
-            reason = StringUtils.join(args, " ", 1, args.length);
-        }
-
-        if (player == null)
-        {
-            msg(FreedomCommand.PLAYER_NOT_FOUND);
+            msg(ctx.getSender(), "This command cannot be used on other admins.");
             return true;
         }
-
-        smite(player, reason);
-        return true;
-    }
-
-    public static void smite(Player player)
-    {
-        smite(player, null);
-    }
-
-    public static void smite(Player player, String reason)
-    {
-        FUtil.bcastMsg(player.getName() + " has been a naughty, naughty boy.", ChatColor.RED);
+        
+        FUtil.bcastMsg(player.getName() + " has been a naughty, naughty boy.", NamedTextColor.RED);
 
         if (reason != null)
         {
-            FUtil.bcastMsg("  Reason: " + reason, ChatColor.RED);
+            FUtil.bcastMsg("  Reason: " + reason, NamedTextColor.YELLOW);
         }
+
+        plugin.db.sendActionMessage(sender.getName(), player.getName(), reason, ConfigEntry.DISCORD_PLAYER_SMITE_MESSAGE);
 
         // Deop
         player.setOp(false);
@@ -82,7 +61,22 @@ public class Command_smite extends FreedomCommand
 
         if (reason != null)
         {
-            player.sendMessage(ChatColor.RED + "You've been smitten. Reason: " + reason);
+            player.sendMessage(Component.text("You've been smitten. Reason: ", NamedTextColor.RED)
+                    .append(FUtil.colorizeWithLinks(reason, NamedTextColor.YELLOW)));
         }
+        return true;
+    }
+
+    @CommandDispatchTarget(pattern = "<player:Player>")
+    public boolean smiteNoReason(CommandContext ctx, Player player)
+    {
+        return smite(ctx, player, null);
+    }
+
+
+    @Override
+    protected boolean run(CommandSender sender, Player playerSender, Command cmd, String commandLabel, String[] args, boolean senderIsConsole)
+    {
+        return false;
     }
 }

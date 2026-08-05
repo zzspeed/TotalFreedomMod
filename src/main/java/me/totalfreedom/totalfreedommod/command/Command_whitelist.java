@@ -1,14 +1,13 @@
 package me.totalfreedom.totalfreedommod.command;
 
 import me.totalfreedom.totalfreedommod.rank.Rank;
-import me.totalfreedom.totalfreedommod.util.DepreciationAggregator;
 import me.totalfreedom.totalfreedommod.util.FUtil;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandPermissions(level = Rank.OP, source = SourceType.BOTH)
+@CommandPermissions(level = Rank.OP, source = SourceType.BOTH, permission = "tfm.server.whitelist")
 @CommandParameters(description = "Manage the whitelist.", usage = "/<command> <on | off | list | count | add <player> | remove <player> | addall | purge>")
 public class Command_whitelist extends FreedomCommand
 {
@@ -91,7 +90,7 @@ public class Command_whitelist extends FreedomCommand
 
             if (player == null)
             {
-                player = DepreciationAggregator.getOfflinePlayer(server, search_name);
+                player = server.getOfflinePlayer(search_name);
             }
 
             FUtil.adminAction(sender.getName(), "Adding " + player.getName() + " to the whitelist.", false);
@@ -113,7 +112,7 @@ public class Command_whitelist extends FreedomCommand
 
             if (player == null)
             {
-                player = DepreciationAggregator.getOfflinePlayer(server, search_name);
+                player = server.getOfflinePlayer(search_name);
             }
 
             if (player.isWhitelisted())
@@ -158,8 +157,10 @@ public class Command_whitelist extends FreedomCommand
         //purge
         if (args[0].equalsIgnoreCase("purge"))
         {
-            FUtil.adminAction(sender.getName(), "Removing all players from the whitelist.", false);
-            msg("Removed " + plugin.si.purgeWhitelist() + " players from the whitelist.");
+//            FUtil.adminAction(sender.getName(), "Removing all players from the whitelist.", false);
+//            msg("Removed " + plugin.si.purgeWhitelist() + " players from the whitelist.");
+
+            FUtil.adminAction(sender.getName(), "Whitelist purging is temporarily disabled.", true);
 
             return true;
         }

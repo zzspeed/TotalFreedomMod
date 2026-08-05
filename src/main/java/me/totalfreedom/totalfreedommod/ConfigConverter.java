@@ -10,9 +10,11 @@ import me.totalfreedom.totalfreedommod.admin.Admin;
 import me.totalfreedom.totalfreedommod.admin.AdminList;
 import me.totalfreedom.totalfreedommod.banning.PermbanList;
 import me.totalfreedom.totalfreedommod.rank.Rank;
-import net.pravian.aero.component.PluginComponent;
-import net.pravian.aero.config.YamlConfig;
+import me.totalfreedom.totalfreedommod.rank.RankManager;
+import me.totalfreedom.totalfreedommod.util.FLog;
+import me.totalfreedom.totalfreedommod.framework.PluginComponent;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 public class ConfigConverter extends PluginComponent<TotalFreedomMod>
 {
@@ -36,64 +38,175 @@ public class ConfigConverter extends PluginComponent<TotalFreedomMod>
             convert = true;
         }
 
-        YamlConfig config = new YamlConfig(plugin, versionFile, true);
-        config.load();
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(versionFile);
+        if (!versionFile.exists())
+        {
+            try
+            {
+                versionFile.getParentFile().mkdirs();
+                versionFile.createNewFile();
+            }
+            catch (IOException ex)
+            {
+                // Ignore
+            }
+        }
 
         if (config.getInt("version", -1) < CURRENT_CONFIG_VERSION)
         {
             convert = true;
         }
 
-        if (!convert)
+        if (convert)
+        {
+            FLog.warning("Converting old configs to new format...");
+
+            File backup = new File(data, "backup_old_format");
+            backup.mkdirs();
+
+            for (File file : data.listFiles())
+            {
+                if (file.equals(backup) || file.equals(versionFile))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Files.move(file, new File(backup, file.getName()));
+                }
+                catch (IOException ex)
+                {
+                    FLog.severe("Could not backup file: " + file.getName());
+                    FLog.severe(ex);
+                }
+            }
+
+            convertSuperadmins(new File(backup, "superadmin.yml"));
+            convertPermbans(new File(backup, "permban.yml"));
+
+            FLog.info("Conversion complete!");
+        }
+
+        if (config.getInt("version", -1) != CURRENT_CONFIG_VERSION)
+        {
+            config.set("version", CURRENT_CONFIG_VERSION);
+            try
+            {
+                config.save(versionFile);
+            }
+            catch (IOException ex)
+            {
+                FLog.severe("Could not save version.yml");
+                FLog.severe(ex);
+            }
+        }
+    }
+
+    /**
+     * Removes some of the unused console variant keys/ranks from ranks.yml.
+     */
+    public void convertRanksYaml()
+    {
+        File ranksFile = new File(plugin.getDataFolder(), RankManager.RANKS_FILENAME);
+        if (!ranksFile.exists())
         {
             return;
         }
 
-        logger.warning("Converting old configs to new format...");
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(ranksFile);
+        boolean changed = false;
 
-        File backup = new File(data, "backup_old_format");
-        backup.mkdirs();
-
-        for (File file : data.listFiles())
+        for (String key : yaml.getKeys(false))
         {
-            if (file.equals(backup) || file.equals(versionFile))
+            ConfigurationSection section = yaml.getConfigurationSection(key);
+            if (section == null)
             {
                 continue;
             }
-
-            try
+            if (section.contains("console_variant"))
             {
-                Files.move(file, new File(backup, file.getName()));
+                section.set("console_variant", null);
+                changed = true;
             }
-            catch (IOException ex)
+            if (section.contains("player_variant"))
             {
-                logger.severe("Could not backup file: " + file.getName());
-                logger.severe(ex);
+                section.set("player_variant", null);
+                changed = true;
             }
         }
 
-        convertSuperadmins(new File(backup, "superadmin.yml"));
-        convertPermbans(new File(backup, "permban.yml"));
+        if (yaml.contains("senior_console"))
+        {
+            yaml.set("senior_console", null);
+            changed = true;
+        }
 
-        logger.info("Conversion complete!");
+        if (!changed)
+        {
+            return;
+        }
+
+        try
+        {
+            yaml.save(ranksFile);
+            FLog.info("Stripped deprecated console variant fields from ranks.yml.");
+        }
+        catch (IOException ex)
+        {
+            FLog.severe("Could not save migrated ranks.yml");
+            FLog.severe(ex);
+        }
+    }
+
+    /**
+     * Remap admins still assigned to deprecated {@code *_CONSOLE} legacy ranks.
+     */
+    public void convertAdminConsoleRanks()
+    {
+        if (plugin.al == null)
+        {
+            return;
+        }
+
+        int migrated = 0;
+        for (Admin admin : plugin.al.getAllAdmins().values())
+        {
+            Rank rank = admin.getRank();
+            Rank newRank = null;
+            if (rank == Rank.SENIOR_CONSOLE)
+            {
+                newRank = Rank.SENIOR_ADMIN;
+            }
+            if (newRank != null)
+            {
+                admin.setRank(newRank);
+                migrated++;
+                FLog.info("Remapped admin '" + admin.getName() + "' from " + rank.name() + " to " + newRank.name());
+            }
+        }
+
+        if (migrated > 0)
+        {
+            plugin.al.save();
+            FLog.info("Remapped " + migrated + " admin(s) from deprecated console ranks.");
+        }
     }
 
     private void convertSuperadmins(File oldFile)
     {
         if (!oldFile.exists() || !oldFile.isFile())
         {
-            logger.warning("No old superadmin list found!");
+            FLog.warning("No old superadmin list found!");
             return;
         }
 
-        // Convert old admin list
-        YamlConfig oldYaml = new YamlConfig(plugin, oldFile, false);
-        oldYaml.load();
+        YamlConfiguration oldYaml = YamlConfiguration.loadConfiguration(oldFile);
 
         ConfigurationSection admins = oldYaml.getConfigurationSection("admins");
         if (admins == null)
         {
-            logger.warning("No admin section in superadmin list!");
+            FLog.warning("No admin section in superadmin list!");
             return;
         }
 
@@ -103,7 +216,7 @@ public class ConfigConverter extends PluginComponent<TotalFreedomMod>
             ConfigurationSection asec = admins.getConfigurationSection(uuid);
             if (asec == null)
             {
-                logger.warning("Invalid superadmin format for admin: " + uuid);
+                FLog.warning("Invalid superadmin format for admin: " + uuid);
                 continue;
             }
 
@@ -112,10 +225,6 @@ public class ConfigConverter extends PluginComponent<TotalFreedomMod>
             if (asec.getBoolean("is_senior_admin"))
             {
                 rank = Rank.SENIOR_ADMIN;
-            }
-            else if (asec.getBoolean("is_telnet_admin"))
-            {
-                rank = Rank.TELNET_ADMIN;
             }
             else
             {
@@ -135,32 +244,40 @@ public class ConfigConverter extends PluginComponent<TotalFreedomMod>
             conversions.add(admin);
         }
 
-        YamlConfig newYaml = new YamlConfig(plugin, AdminList.CONFIG_FILENAME);
+        File newYamlFile = new File(plugin.getDataFolder(), AdminList.CONFIG_FILENAME);
+        YamlConfiguration newYaml = YamlConfiguration.loadConfiguration(newYamlFile);
         for (Admin admin : conversions)
         {
             admin.saveTo(newYaml.createSection(admin.getName().toLowerCase()));
         }
-        newYaml.save();
+        try
+        {
+            newYaml.save(newYamlFile);
+        }
+        catch (IOException ex)
+        {
+            FLog.severe("Could not save converted admin list");
+        }
 
-        logger.info("Converted " + conversions.size() + " admins");
+        FLog.info("Converted " + conversions.size() + " admins");
     }
 
     private void convertPermbans(File oldFile)
     {
         if (!oldFile.exists())
         {
-            logger.warning("No old permban list found!");
+            FLog.warning("No old permban list found!");
             return;
         }
 
         try
         {
             Files.copy(oldFile, new File(plugin.getDataFolder(), PermbanList.CONFIG_FILENAME));
-            logger.info("Converted permban list");
+            FLog.info("Converted permban list");
         }
         catch (IOException ex)
         {
-            logger.warning("Could not copy old permban list!");
+            FLog.warning("Could not copy old permban list!");
         }
 
     }

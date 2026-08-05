@@ -5,9 +5,8 @@ import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.player.FPlayer;
 import static me.totalfreedom.totalfreedommod.util.FUtil.playerMsg;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -27,34 +26,39 @@ public class WorldManager extends FreedomService
     {
         super(plugin);
 
-        this.flatlands = new Flatlands();
-        this.adminworld = new AdminWorld();
+        this.flatlands = new Flatlands(plugin);
+        this.adminworld = new AdminWorld(plugin);
     }
 
     @Override
     protected void onStart()
     {
-        flatlands.getWorld();
-        adminworld.getWorld();
+        Bukkit.getScheduler().runTask(plugin, () ->
+        {
+            flatlands.getWorld();
+            adminworld.getWorld();
 
         // Disable weather
-        if (ConfigEntry.DISABLE_WEATHER.getBoolean())
-        {
-            for (World world : server.getWorlds())
+            if (ConfigEntry.DISABLE_WEATHER.getBoolean())
             {
-                world.setThundering(false);
-                world.setStorm(false);
-                world.setThunderDuration(0);
-                world.setWeatherDuration(0);
+                for (World world : server.getWorlds())
+                {
+                    world.setThundering(false);
+                    world.setStorm(false);
+                    world.setThunderDuration(0);
+                    world.setWeatherDuration(0);
+                }
             }
-        }
+        });
     }
 
     @Override
     protected void onStop()
     {
-        flatlands.getWorld().save();
-        adminworld.getWorld().save();
+        World fl = Bukkit.getWorld(flatlands.getName());
+        if (fl != null) fl.save();
+        World aw = Bukkit.getWorld(adminworld.getName());
+        if (aw != null) aw.save();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -74,19 +78,9 @@ public class WorldManager extends FreedomService
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event)
     {
-        final Location from = event.getFrom();
-        final Location to = event.getTo();
-
-        try
+        if (!event.hasChangedPosition())
         {
-            if (from.getWorld() == to.getWorld() && from.distanceSquared(to) < (0.0002 * 0.0002))
-            {
-                // If player just rotated, but didn't move, don't process this event.
-                return;
-            }
-        }
-        catch (IllegalArgumentException ex)
-        {
+            return;
         }
 
         adminworld.validateMovement(event);
@@ -141,7 +135,7 @@ public class WorldManager extends FreedomService
 
         if (player.getWorld().getName().equalsIgnoreCase(targetWorld))
         {
-            playerMsg(player, "Going to main world.", ChatColor.GRAY);
+            playerMsg(player, "Going to main world.", NamedTextColor.GRAY);
             player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
             return;
         }
@@ -150,13 +144,13 @@ public class WorldManager extends FreedomService
         {
             if (world.getName().equalsIgnoreCase(targetWorld))
             {
-                playerMsg(player, "Going to world: " + targetWorld, ChatColor.GRAY);
+                playerMsg(player, "Going to world: " + targetWorld, NamedTextColor.GRAY);
                 player.teleport(world.getSpawnLocation());
                 return;
             }
         }
 
-        playerMsg(player, "World " + targetWorld + " not found.", ChatColor.GRAY);
+        playerMsg(player, "World " + targetWorld + " not found.", NamedTextColor.GRAY);
     }
 
 }

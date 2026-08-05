@@ -8,10 +8,11 @@ import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.caging.CageData;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.freeze.FreezeData;
+import me.totalfreedom.totalfreedommod.util.AdventureUtil;
 import me.totalfreedom.totalfreedommod.util.FUtil;
-import net.pravian.aero.util.Ips;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -23,6 +24,17 @@ public class FPlayer
 {
 
     public static final long AUTO_PURGE_TICKS = 5L * 60L * 20L;
+    private static final long COUNTER_WINDOW_MS = 1000L;
+    private static volatile long msgCounterWindowMs = 1000L;
+
+    public static void refreshConfig()
+    {
+        final Integer window = ConfigEntry.ANTISPAM_TIME_WINDOW.getInteger();
+        if (window != null && window > 0)
+        {
+            msgCounterWindowMs = window;
+        }
+    }
 
     @Getter
     private final TotalFreedomMod plugin;
@@ -40,8 +52,15 @@ public class FPlayer
     @Getter
     private double fuckoffRadius = 0;
     private int messageCount = 0;
+    private long messageCountWindowStart = 0L;
+    private int dropCount = 0;
+    private long dropCountWindowStart = 0L;
+    private int dropItemCount = 0;
+    private long dropItemCountWindowStart = 0L;
     private int totalBlockDestroy = 0;
+    private long totalBlockDestroyWindowStart = 0L;
     private int totalBlockPlace = 0;
+    private long totalBlockPlaceWindowStart = 0L;
     private int freecamDestroyCount = 0;
     private int freecamPlaceCount = 0;
     @Getter
@@ -62,14 +81,14 @@ public class FPlayer
     @Getter
     @Setter
     private boolean superadminIdVerified = false;
-    private String lastCommand = "";
-    private boolean cmdspyEnabled = false;
-    private String tag = null;
+    private CommandSpyMode commandSpyMode = CommandSpyMode.OFF;
+    private Component tag = null;
+    private String tagInternal = null;
     private int warningCount = 0;
 
     public FPlayer(TotalFreedomMod plugin, Player player)
     {
-        this(plugin, player.getName(), Ips.getIp(player));
+        this(plugin, player.getName(), player.getAddress().getAddress().getHostAddress());
     }
 
     private FPlayer(TotalFreedomMod plugin, String name, String ip)
@@ -88,14 +107,7 @@ public class FPlayer
 
         if (player == null)
         {
-            for (Player onlinePlayer : Bukkit.getOnlinePlayers())
-            {
-                if (Ips.getIp(onlinePlayer).equals(ip))
-                {
-                    player = onlinePlayer;
-                    break;
-                }
-            }
+            player = Bukkit.getPlayerExact(name);
         }
 
         return player;
@@ -140,31 +152,88 @@ public class FPlayer
     public void resetMsgCount()
     {
         this.messageCount = 0;
+        this.messageCountWindowStart = System.currentTimeMillis();
     }
 
     public int incrementAndGetMsgCount()
     {
+        final long now = System.currentTimeMillis();
+        if (now - messageCountWindowStart > msgCounterWindowMs)
+        {
+            messageCount = 0;
+            messageCountWindowStart = now;
+        }
         return this.messageCount++;
+    }
+
+    public int incrementDropCount(long windowMs)
+    {
+        final long now = System.currentTimeMillis();
+        if (now - dropCountWindowStart > windowMs)
+        {
+            dropCount = 0;
+            dropCountWindowStart = now;
+        }
+        return this.dropCount++;
+    }
+
+    public void resetDropCount()
+    {
+        this.dropCount = 0;
+        this.dropCountWindowStart = System.currentTimeMillis();
+    }
+
+    public int incrementDropItemCount(int amount, long windowMs)
+    {
+        final long now = System.currentTimeMillis();
+        if (now - dropItemCountWindowStart > windowMs)
+        {
+            dropItemCount = 0;
+            dropItemCountWindowStart = now;
+        }
+        final int before = this.dropItemCount;
+        this.dropItemCount += Math.max(amount, 1);
+        return before;
+    }
+
+    public void resetDropItemCount()
+    {
+        this.dropItemCount = 0;
+        this.dropItemCountWindowStart = System.currentTimeMillis();
     }
 
     public int incrementAndGetBlockDestroyCount()
     {
+        final long now = System.currentTimeMillis();
+        if (now - totalBlockDestroyWindowStart > COUNTER_WINDOW_MS)
+        {
+            totalBlockDestroy = 0;
+            totalBlockDestroyWindowStart = now;
+        }
         return this.totalBlockDestroy++;
     }
 
     public void resetBlockDestroyCount()
     {
         this.totalBlockDestroy = 0;
+        this.totalBlockDestroyWindowStart = System.currentTimeMillis();
     }
 
     public int incrementAndGetBlockPlaceCount()
     {
+        final long now = System.currentTimeMillis();
+        if (now - totalBlockPlaceWindowStart > COUNTER_WINDOW_MS)
+        {
+            totalBlockPlace = 0;
+            totalBlockPlaceWindowStart = now;
+        }
         return this.totalBlockPlace++;
     }
 
     public void resetBlockPlaceCount()
     {
         this.totalBlockPlace = 0;
+        this.totalBlockPlaceWindowStart = System.currentTimeMillis();
     }
 
     public int incrementAndGetFreecamDestroyCount()
@@ -277,24 +346,35 @@ public class FPlayer
         FUtil.cancel(unmuteTask);
         unmuteTask = null;
 
-        if (!muted)
+        if (muted)
         {
-            return;
-        }
-
-        if (getPlayer() == null)
-        {
-            return;
-        }
-        unmuteTask = new BukkitRunnable()
-        {
-            @Override
-            public void run()
+            if (getPlayer() == null)
+            {
+                return;
+            }
+            unmuteTask = plugin.getServer().getScheduler().runTaskLater(plugin, () ->
             {
                 FUtil.adminAction("TotalFreedom", "Unmuting " + getPlayer().getName(), false);
                 setMuted(false);
-            }
-        }.runTaskLater(plugin, AUTO_PURGE_TICKS);
+            }, AUTO_PURGE_TICKS);
+        }
+
+        persistMuted(muted);
+    }
+
+    private void persistMuted(boolean muted)
+    {
+        final Player p = getPlayer();
+        if (p == null)
+        {
+            return;
+        }
+        final PlayerData data = plugin.pl.getData(p);
+        if (data.isMuted() != muted)
+        {
+            data.setMuted(muted);
+            plugin.pl.saveData(data);
+        }
     }
 
     public BukkitTask getLockupScheduleID()
@@ -335,43 +415,54 @@ public class FPlayer
     public void setCommandsBlocked(boolean commandsBlocked)
     {
         this.allCommandsBlocked = commandsBlocked;
-    }
 
-    public String getLastCommand()
-    {
-        return lastCommand;
-    }
-
-    public void setLastCommand(String lastCommand)
-    {
-        this.lastCommand = lastCommand;
+        final Player p = getPlayer();
+        if (p == null)
+        {
+            return;
+        }
+        final PlayerData data = plugin.pl.getData(p);
+        if (data.isCommandsBlocked() != commandsBlocked)
+        {
+            data.setCommandsBlocked(commandsBlocked);
+            plugin.pl.saveData(data);
+        }
     }
 
     public void setCommandSpy(boolean enabled)
     {
-        this.cmdspyEnabled = enabled;
+        this.commandSpyMode = enabled ? CommandSpyMode.ALL : CommandSpyMode.OFF;
     }
 
     public boolean cmdspyEnabled()
     {
-        return cmdspyEnabled;
+        return commandSpyMode != CommandSpyMode.OFF;
+    }
+
+    public CommandSpyMode getCommandSpyMode()
+    {
+        return commandSpyMode;
+    }
+
+    public void setCommandSpyMode(CommandSpyMode commandSpyMode)
+    {
+        this.commandSpyMode = commandSpyMode == null ? CommandSpyMode.OFF : commandSpyMode;
     }
 
     public void setTag(String tag)
     {
-        if (tag == null)
-        {
-            this.tag = null;
-        }
-        else
-        {
-            this.tag = FUtil.colorize(tag) + ChatColor.WHITE;
-        }
+        this.tagInternal = tag;
+        this.tag = AdventureUtil.format(tag);
     }
 
-    public String getTag()
+    public Component getTag()
     {
         return this.tag;
+    }
+
+    public String getInternalTag()
+    {
+        return this.tagInternal;
     }
 
     public int getWarningCount()
@@ -387,7 +478,7 @@ public class FPlayer
         {
             Player p = getPlayer();
             p.getWorld().strikeLightning(p.getLocation());
-            FUtil.playerMsg(p, ChatColor.RED + "You have been warned at least twice now, make sure to read the rules at " + ConfigEntry.SERVER_BAN_URL.getString());
+            FUtil.playerMsg(p, "You have been warned at least twice now, make sure to read the rules at " + ConfigEntry.SERVER_BAN_URL.getString(), NamedTextColor.RED);
         }
     }
 

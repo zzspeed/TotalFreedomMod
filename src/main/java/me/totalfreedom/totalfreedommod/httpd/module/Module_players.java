@@ -1,13 +1,13 @@
 package me.totalfreedom.totalfreedommod.httpd.module;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.admin.Admin;
 import me.totalfreedom.totalfreedommod.httpd.NanoHTTPD;
 import me.totalfreedom.totalfreedommod.util.FUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
 
 public class Module_players extends HTTPDModule
 {
@@ -18,25 +18,28 @@ public class Module_players extends HTTPDModule
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public NanoHTTPD.Response getResponse()
     {
-        final JSONObject responseObject = new JSONObject();
+        final JsonObject responseObject = new JsonObject();
 
-        final JSONArray players = new JSONArray();
-        final JSONArray superadmins = new JSONArray();
-        final JSONArray telnetadmins = new JSONArray();
-        final JSONArray senioradmins = new JSONArray();
-        final JSONArray developers = new JSONArray();
+        final JsonArray players = new JsonArray();
+        final JsonArray onlineadmins = new JsonArray();
+        final JsonArray superadmins = new JsonArray();
+        final JsonArray senioradmins = new JsonArray();
+        final JsonArray developers = new JsonArray();
 
         // All online players
         for (Player player : Bukkit.getOnlinePlayers())
         {
             players.add(player.getName());
+            if (plugin.al.isAdmin(player) && !plugin.al.isAdminImpostor(player))
+            {
+                onlineadmins.add(player.getName());
+            }
         }
 
         // Admins
-        for (Admin admin : plugin.al.getAllAdmins().values())
+        for (Admin admin : plugin.al.getActiveAdmins())
         {
             final String username = admin.getName();
 
@@ -45,9 +48,6 @@ public class Module_players extends HTTPDModule
                 case SUPER_ADMIN:
                     superadmins.add(username);
                     break;
-                case TELNET_ADMIN:
-                    telnetadmins.add(username);
-                    break;
                 case SENIOR_ADMIN:
                     senioradmins.add(username);
                     break;
@@ -55,13 +55,16 @@ public class Module_players extends HTTPDModule
         }
 
         // Developers
-        developers.addAll(FUtil.DEVELOPERS);
+        for (String developer : FUtil.DEVELOPERS)
+        {
+            developers.add(developer);
+        }
 
-        responseObject.put("players", players);
-        responseObject.put("superadmins", superadmins);
-        responseObject.put("telnetadmins", telnetadmins);
-        responseObject.put("senioradmins", senioradmins);
-        responseObject.put("developers", developers);
+        responseObject.add("players", players);
+        responseObject.add("onlineadmins", onlineadmins);
+        responseObject.add("superadmins", superadmins);
+        responseObject.add("senioradmins", senioradmins);
+        responseObject.add("developers", developers);
 
         final NanoHTTPD.Response response = new NanoHTTPD.Response(NanoHTTPD.Response.Status.OK, NanoHTTPD.MIME_JSON, responseObject.toString());
         response.addHeader("Access-Control-Allow-Origin", "*");

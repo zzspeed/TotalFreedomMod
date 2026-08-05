@@ -50,6 +50,11 @@ public class Freezer extends FreedomService
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event)
     {
+        if (!event.hasChangedPosition())
+        {
+            return;
+        }
+
         final Player player = event.getPlayer();
 
         if (plugin.al.isAdmin(player))

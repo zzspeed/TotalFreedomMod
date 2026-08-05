@@ -1,4 +1,4 @@
-#
+# CAN YOU FUCKING CHILL OUT @luke560
 # TotalFreedomMod 5.0 Configuration
 # by Madgeek1450 and Prozza
 #
@@ -9,23 +9,26 @@ server:
   name: TotalFreedom
 
   # The address your server is located at. Please do not include the port.
-  address: play.totalfreedom.me
+  address: play.tfreedom.org
 
-  # Shown at the server list
-  motd: TotalFreedom &8- Minecraft %mcversion%
+  # Shown at the server list - Please note that support for %mcversion% has been withdrawn
+  motd: TotalFreedom &8- The Original All-Op Server!
 
   # Every word in the MOTD will be a different color unless prefixed by a color code
   colorful_motd: true
 
-  # All players who show up as owner
-  owners:
-    - markbyron
+  # URL players should visit the main website at
+  web_url: https://tfreedom.org/
 
   # URL players should appeal for bans at
-  ban_url: http://totalfreedom.boards.net/
+  ban_url: https://tfreedom.org/appeal/
 
   # URL players should appeal for permanent bans at
-  permban_url: http://bit.ly/TF_PermBan
+  permban_url: https://tfreedom.org/appeal/
+
+  # Usernames granted the "owner" custom rank on join (case-sensitive).
+  owners:
+    - markbyron
 
 # Admin list
 adminlist:
@@ -33,9 +36,15 @@ adminlist:
   # The amount of hours after which admins may be removed from the admin list
   clean_threshold_hours: 167
 
-  # Give the default CONSOLE senior admin privileges.
-  # Handy in development environments.
-  console_is_senior: true
+  # When true (default), TFM resolves unknown usernames to premium UUIDs via Mojang's public HTTP API
+  # when saving admins or migrating data. Set to false only on networks with no outbound access or a
+  # policy against Mojang calls; premium UUIDs must then be set manually or admins added while online.
+  mojang_uuid_lookup: true
+
+  # When true, admin identity is matched strictly by UUID.  Otherwise, when false (default), the
+  # stored admin username is silently rewritten when a new user joins from a known admin IP.
+  # This is only intended for setups where a proxy server is already taking care of pre-auth.
+  use_uuid_only: false
 
 # ForceIP configuration
 forceip:
@@ -58,6 +67,12 @@ allow:
   water_place: false
   tnt_minecarts: false
   explosions: false
+  sign_place: true
+  falling_signs: false
+  falling_blocks: false
+  redstone: true
+  auto_clear: false
+  auto_tp: false
 
 # Blocked commands:
 #
@@ -70,7 +85,6 @@ allow:
 #   Valid ranks:
 #   n - Nobody (Completely disabled)
 #   c - Senior Admins (Console)
-#   t - Telnet Admins (Console)
 #   s - Super Admins (Any in-game admin)
 #   o - Ops (Non-Ops won't be able to use it)
 #
@@ -80,7 +94,11 @@ allow:
 #   a - Block the command and auto-eject that player (for ops and below)
 #   u - Block the command and Return an "Unknown command" message (Used to hide commands)
 #
-# * The third section is the command to be blocked, prefixed with a slash
+# * The third section is the command to be blocked, prefixed with a slash.
+#   You can also list arguments after the command name, separated by spaces.
+#   Two pattern tokens are supported in the argument list:
+#     {?}  - matches exactly one argument (any value) at that position.
+#     {*}  - matches one or more trailing arguments. Only valid as the last token.
 #
 # * The fourth section is the message to send to the player when executing that command.
 #   This should be ommited if unwanted. ChatColors are supported with the &-key. By default
@@ -91,11 +109,14 @@ allow:
 #   - 'n:b:/mail sendall:&4You can't send mails to everyone!'
 #   - 's:a:/stop'
 #   - 'n:b:/ban:_'
+#   - 's:b:/clear {*}:_'           # allow "/clear" but block "/clear <anything>"
+#   - 's:b:/clear inventory {*}:_' # allow "/clear inventory" but block "/clear inventory <x>"
+#   - 's:b:/clear {?} {*}:_'       # allow "/clear" and "/clear x" but block "/clear x y..."
+#   - 's:b:/give {?} bedrock {*}:_'# block "/give <player> bedrock <anything>"
 #
 blocked_commands:
   # Disabled commands
   - 'n:b:/time:Server-side time changing is disabled. Please use /ptime to set your own personal time.'
-  - 'n:b:/gamemode:Use /gmc and /gms to set your gamemode.'
   - 'n:b:/ban:_'
   - 'n:b:/pardon:_'
   - 'n:b:/ban-ip:_'
@@ -118,7 +139,7 @@ blocked_commands:
   - 'n:b:/testforblock:_'
   - 'n:b:/testforblocks:_'
   - 'n:b:/packet:_'
-  - 'n:b://eval:_'
+
   - 'n:b:/thaw:_'
   - 'n:b:/spawnmob:_'
   - 'n:b:/setjail:_'
@@ -201,8 +222,46 @@ blocked_commands:
   - 's:a:/stop:_'
   - 's:a:/restart:_'
 
-# Automatically wipe dropped objects
+# Block server-side commands (command blocks / command minecarts / @ feedback sources).
+server_command_blocker:
+  enabled: true
+  block_at_named_senders: true
+  block_command_block_holders: true
+  # Case-insensitive substring matches against the raw command string (without a leading slash).
+  blocked_substrings:
+    - 'tp '
+    - 'teleport '
+    - 'execute '
+    - 'save-all'
+    - 'save-on'
+    - 'save-off'
+    - 'stop'
+    - 'restart'
+    - 'kill '
+  # If true, emits an occasional WARNING when commands are blocked (rate-limited).
+  log_throttled_warnings: false
+  # 20 ticks = 1 second
+  log_interval_ticks: 1200
+
+# Automatically wipes dropped entities from every world on the server in
+# auto_wipe_interval seconds.  Set false to disable.
 auto_wipe: true
+auto_wipe_interval: 15
+
+# AntiDrop rate limiting for item/entity drops.
+# Exceeding an eject limit within time_window triggers AutoEject.
+antidrop:
+  enabled: true
+  # Milliseconds (ms) after which a player's drop count resets.
+  time_window: 1000
+  # The number of drop *events* per window.  A dropped stack is one entity, so
+  # a stack of 64 individual items is counted as one drop.
+  drop_limit: 15
+  drop_eject_limit: 32
+  # The total item *quantity* per window.  A dropped stack is counted by the
+  # number of items, so a stack of 64 is counted as 64.
+  drop_item_limit: 512
+  drop_item_eject_limit: -1
 
 # Nuking prevention
 nukemonitor:
@@ -210,6 +269,196 @@ nukemonitor:
   count_break: 100
   count_place: 40
   range: 10.0
+
+# AntiSpam rate limiting for chat and commands.
+# Exceeding `limit` within `time_window` triggers AutoEject.
+antispam:
+  enabled: true
+  limit: 15
+  # Milliseconds (ms) after which a player's spam count resets.
+  time_window: 1000
+
+# MovementGuard
+# Used to monitor inbound movement packets (requires packetevents).
+move_guard:
+  enabled: true
+  # Cross-chunk player speed check.
+  speed:
+    # Maximum horizontal distance (in blocks) that a single movement packet may advance before
+    # being considered oversized.
+    max_horizontal_delta: 128
+    # Number of teleports (oversized moves) before the player is auto-ejected from the server.
+    max_teleports_per_second: 5
+
+# ItemValidator
+# For detecting items with oversized/nested NBT data.
+crash_items:
+  # Whether to prevent crash items.
+  prevent: true
+  # Use this only during an emergency.
+  panic_mode: false
+  # Outbound packet guard.
+  # When the packetevents plugin is present, this can be used to strip items from
+  # equipment/inventory/item slot packets in order to try and prevent the client from crashing.
+  packet_guard: true
+  # Inbound packet rate limiting (also requires packetevents). Caps how many
+  # interaction and chat/command packets a single player may send per second.
+  packet_rate_limit: true
+  # Max block/entity interaction packets per player per second.
+  # 0 disables interaction limiting.
+  max_interactions_per_second: 40
+  # Max chat/command packets per player per second.
+  # 0 disables chat/command limiting.
+  max_commands_per_second: 20
+  max_movement_packets_per_second: 120
+  max_hotbar_slots_per_second: 25
+  # Commands to check for preprocessed text.
+  # Matched against the Minecraft subcommand, e.g. "minecraft:<name>"
+  base_commands:
+    - 'give'
+    - 'i'
+    - 'item'
+    - 'loot'
+    - 'replaceitem'
+  # How often (in ticks, 20 = 1s) to sweep every online player's inventory, armor,
+  # off-hand, and cursor and physically delete cursed items. This backs up the
+  # packet guard by removing the payload at the source so it cannot be re-broadcast
+  # or saved. 0 disables the sweep. 100 ticks (5s) is a good balance.
+  equipment_sweep_ticks: 100
+  # Whether to suppress the repretitive warnings from Paper that appear in console
+  # when an item is blocked ("Can't create item stack with properties").
+  hide_console_spam: true
+  # Max number of custom potion effects an item may carry before it is treated as
+  # a crash item. 0 disables.
+  max_potion_effects: 24
+
+# ContainerPacketGuard
+# Removes unwanted items from item-bearing title entities that can be delivered
+# to clients in order to crash them.  Regular chest/shulkers are already handled
+# by the item packet guard.
+crash_containers:
+  # Whether to scan outbound packets. Requires packetevents.
+  packet_guard: true
+  # The same for tile entities embedded in outbound chunk packets. Also requires
+  # packetevents. Disable this if you see too much compute usage on player join.
+  chunk_guard: true
+  # Strip cursed items from container block entities when a chunk loads and during
+  # startup for already loaded chunks.
+  scan_chunk_load: true
+  # Controls how strict the policy is for sweeping containers that are detected.
+  # This primarily targets items that contain data which can lag the server.
+  #
+  # 1. filter (removes only the offending slots), 2. clear (empties the whole
+  # container), or 3. destroy (removes the container block entirely).
+  #
+  # Filtering slots is expensive and discouraged. It is recommended to destroy
+  # containers when they are being intentionally used to strain the server.
+  sweep_mode: clear
+  # Proactive sweep (in ticks, 20 = 1s) of chunks around every player to check
+  # for offending container block entities. 0 disables.
+  sweep_ticks: 40
+  # Chunk radius around each player to include in the proactive sweep. 4 covers
+  # roughly the player's immediate view; raise for a larger blast radius at some
+  # CPU cost. Chunks are de-duplicated across players each pass.
+  sweep_radius: 4
+
+# SpawnerValidator
+# For detecting spawners that are used to crash or otherwise lock up the client.
+crash_spawners:
+  # Whether to block hanging entities generated by a spawner.
+  # To block spawner function entirely, see disable.spawners further down the config.
+  prevent: true
+  # Whether to guard against outbound packets containing unwanted SpawnData.
+  # Requires the packetevents plugin.
+  packet_guard: true
+  # The same thing but for spawners embedded in outbound chunk packets. Also requires
+  # packetevents. Disable this if you see too much compute usage on player join.
+  chunk_guard: true
+
+# SignValidator
+# For detecting signs that hang the server/client.
+crash_signs:
+  # Whether to prevent crash signs.
+  prevent: true
+  # When true, scan every loaded chunk's signs and sanitize their contents.
+  # Freshly generated chunks are skipped. Disable this only if it causes
+  # measurable chunk-load latency on your server.
+  scan_chunk_load: true
+  # Proactive sweep (in ticks, 20 = 1s) of chunks around every online player,
+  # removing cursed signs at the source.
+  # 0 disables the sweep. 40 ticks (2s) is a good balance.
+  sweep_ticks: 40
+  # Chunk radius around each player to include in the proactive sweep. 4 covers
+  # roughly the player's immediate view; raise for larger blast radius at some
+  # CPU cost. Chunks are de-duplicated across players each pass.
+  sweep_radius: 4
+  # Outbound block-entity packet guard (requires the packetevents plugin). When a
+  # Tries to drop the BLOCK_ENTITY_DATA in a packet so that the client never receives
+  # the crash payload.
+  packet_guard: true
+  # Outbound chunk packet guard (also requires packetevents). Scans sign block-entities
+  # inside CHUNK_DATA packets sent to joining players so as to prevent crash-on-joins.
+  # Disable if you see too much CPU spike on player join.
+  chunk_guard: true
+
+# EntityValidator
+# Detects invalid entity names, hitboxes, text displays, projectiles and so on;
+# this custom NBT data can be used to produce entities that freeze/hang clients.
+crash_entities:
+  # Whether to strip cursed entity custom names.
+  prevent: true
+  # Maximum plain-text length permitted for an entity custom name.
+  # 64 matches the item-name limit.
+  max_name_length: 64
+  # Maximum Adventure component nodes inspected per custom name.
+  max_component_nodes: 1024
+  # Periodic sweep (in ticks, 20 = 1s) over every entity in every loaded
+  # world. 0 disables the sweep. 200 ticks (10s) is a good balance.
+  sweep_ticks: 200
+  # Pre-screens /summon, /data, /execute, /entitydata, /nick and /rename
+  # for format-specifier patterns (e.g. "%1$s") and nested NBT before executing.
+  screen_commands: true
+  # When stripping a cursed name, also clear the nameplate? (Protects the client.)
+  strip_name_visible: true
+  # Limit on entity scale multiplier (Attribute.SCALE).  Vanilla allows
+  # up to 16.0.  0 disables the scale cap.
+  max_scale: 4.0
+  # Limit on Slime#setSize.  Each +1 adds ~0.51 blocks to the slime's
+  # bounding box.  Vanilla maxes at 4 (large).  0 disables the size cap.
+  max_slime_size: 8
+  # The maximum dimension of blocks per axis for a painting.  (A vanilla painting
+  # caps at 4x4 blocks.)  0 disables the size cap.
+  max_painting_size: 16
+  # Periodic sweep over loaded, oversized entities in the worlds, in ticks.
+  # 0 disables.  200 ticks (10s) by default.
+  scale_sweep_ticks: 200
+
+# MovementValidator
+# Keeps players within the scope of the world border at a low level.  This is a global
+# world border defined by the radius from the center (0,0) with a playable area of
+# 2 x world_border on each side.  Default of 1 million (2 mil. blocks wide).
+# 0 disables the border.
+world_border: 1000000
+
+# AutoEject runs when AntiSpam, AntiDrop, AntiNuke or a blocked command action trips.
+# Strikes are stored according to the player's IP address.
+autoeject:
+  # When false, the spam/etc still gets cancelled; no punishment happens.
+  enabled: true
+  # Whether to retain strikes after restart; false is server memory only.
+  persist: false
+  # Hours of no new strikes after which a player's strike count resets.
+  # 0 = strikes stay until manually cleared.
+  time_window: 24
+  strike_one:
+    # Minutes in length the player is banned.
+    # 0 = kick only, no ban
+    # -1 = permanent ban (GTFO!)
+    timeout: 0
+  strike_two:
+    timeout: 5
+  strike_three:
+    timeout: 10
 
 freecam_trigger_count: 10
 explosive_radius: 4.0
@@ -221,29 +470,47 @@ preprocess_log: true
 disable:
   night: true
   weather: true
-
+  spawners: false
+  spawner_place: false
+  portal_create: false
+  pistons: false
+  entity_spam: false
+  entity_spam_max: 750
 
 # Enable misc. features
 landmines_enabled: false
 mp44_enabled: false
 tossmob_enabled: false
 
+jumppad:
+  mode: 'off'
+
 # Moblimiter
 moblimiter:
   enabled: true
   max: 50
-  disable:
-    dragon: true
-    ghast: true
-    slime: true
-    giant: true
+  disabled:
+    - "minecraft:ender_dragon"
+    - "minecraft:ghast"
+    - "minecraft:slime"
+    - "minecraft:giant"
+    - "minecraft:bat"
 
 # Flatlands
 flatlands:
   generate: true
 
-  # Flatlands generation parameters - Uses CleanroomGenerator syntax - http://dev.bukkit.org/server-mods/cleanroomgenerator/
-  generate_params: 16,stone,32,dirt,1,grass
+  # Flatlands generation parameters - Uses CleanroomGenerator v1.2.1 syntax
+  # Format: [prefix]height|block|height|block|...
+  # Prefixes: . = no bedrock, ^ = start at y=-64 (1.18+ deep worlds)
+  # Examples:
+  #   "64|stone" - 1 bedrock + 64 stone
+  #   ".64|stone" - 64 stone, no bedrock  
+  #   "^64|stone" - starts at y=-64
+  #   "." - void world
+  # Block names support modern format like "minecraft:grass_block[snowy=true]"
+  # Legacy comma-separated format is still supported for backward compatibility
+  generate_params: 16|stone|32|dirt|1|grass_block
 
 # Admin-Only Mode
 admin_only_mode: false
@@ -253,16 +520,166 @@ protectarea:
   enabled: true
   auto_protect_spawnpoints: true
   auto_protect_radius: 25.0
+  protect_players: true
+  # Blocks operators from splashing potion effects in the area.
+  block_potions: true
+  # Blocks them from dropping/picking up items in the area.
+  block_items: true
 
-# Host Sender Names - Names that indicate automated services or host-based consoles you want to block from using some commands.
-# Make sure these are all lower-case.
-host_sender_names:
-  - rcon
-  - remotebukkit
+# WorldEdit settings
+worldedit:
+  enabled: true
+
+  # Maximum limit non-admins can set for their WorldEdit operations
+  # Set to -1 for no limit.
+  limit_max: 10000
+
+  # De-op players who try to set their limit higher than allowed
+  deop_on_limit_abuse: false
+
+  # Maximum WorldEdit selection volume (block count) for non-admins.
+  # Set to -1 to disable the cap entirely.
+  max_selection_volume: 1000000
+
+  # Maximum radius non-admins may pass to radius-based WorldEdit commands
+  # (//replacenear, //sphere, //cyl, //drain, //butcher, //forestgen, etc.).
+  # Set to -1 to disable the cap entirely.
+  radius_max: 100
+
+  # Maximum number of block types that an operator may combine in a single WorldEdit
+  # pattern (e.g. "//set a,b,c"). Set to -1 to disable.
+  max_pattern_blocks: 7
+
+  block_clipboard_pattern: true
+
+  # Rate limits the number of WorldEdit operations for an operator.
+  throttle:
+    enabled: true
+    # The max number of operations allowed within window_ms before being cancelled.
+    max_operations: 3
+    # Time window in milliseconds (1000 = 1 second) that max_operations must be exceeded
+    # before being cancelled.
+    time_window: 1000
+    # The number of cancelled operations within the window_ms (any operations attempted
+    # after max_operations) before AutoEject is triggered for that player. -1 to never eject.
+    max_cancelled_operations: 5
+
+  # Block types that may not be used by operators in a WorldEdit pattern/mask.
+  # Matches along namespace and weight.  An entry containing '*' matches as a substring
+  # (e.g. '*sculk_sensor*' includes calibrated_sculk_sensor).  Leave empty to disable.
+  blocked_types:
+  - '*sculk_sensor*'
+  - 'sculk_shrieker'
+  - '*command_block*'
+  - '*spawner*'
+  - 'jigsaw'
+  - 'structure_block'
+  - 'structure_void'
+  - 'barrier'
+  - 'light'
+  - 'moving_piston'
+  - 'vault'
+  - 'nether_portal'
+  - 'end_portal'
+  - 'end_gateway'
+  - beacon
+  - observer
+  - dispenser
+  - bell
+  - note_block
+  - '#clipboard'
+
+  # Maximum number of container blocks (e.g. chests, shulkers, hoppers...) that an
+  # operator may place in a single WorldEdit operation. Set to -1 for no limit.
+  max_containers: 500
+
+  # Maximum size of a schematic file in kilobytes that an operator may save.
+  # Set to -1 for no limit.
+  max_schem_save_kb: 2048
+
+# Host senders — binds automated services or host-based consoles to an admin rank.
+#
+# Format: '<rank_id>:<sender_name>'. Sender names are case-insensitive.
+#
+# If enabled, public key SSH bypasses this in favor of the admin's rank (see ssh.inherit_rank).
+# The `super_admin:ssh` entry dictates that password-authenticated SSH sessions will receive Super
+# Admin.
+#
+host_senders:
+  - 'super_admin:rcon'
+  - 'super_admin:remotebukkit'
+  - 'super_admin:ssh'
+  - 'senior_admin:console'
+  - 'senior_admin:discord'
+
+# Discord bridge — relays in-game chat to a Discord channel and exposes a
+# console channel for admins to read server output and execute commands.
+#
+discord:
+  enabled: false
+
+  # Discord API bot token
+  token: ''
+
+  # ID string of the guild (server) the bot operates in
+  guild_id: ''
+
+  # ID for the public chat relay channel
+  public_channel_id: ''
+
+  # ID for the admin chat relay channel
+  adminchat_channel_id: ''
+
+  # ID for the admin console channel
+  console_channel_id: ''
+
+  # Format applied to Discord messages broadcast into in-game chat.
+  # Available placeholders: {user}, {role}, {rolecolor}, {reply}, and {message}.
+  chat_format: '&9[Discord] &r[{rolecolor}{role}&r] {user}{reply}&7: &f{message}'
+
+  # Format applied to in-game chat posted into the Discord public channel.
+  channel_format: '{message}'
+
+  # Format applied to Discord messages broadcast into admin chat.
+  # Available placeholders: {user}, {role}, {rolecolor}, {reply}, and {message}.
+  adminchat_format: '&8[&9Discord&8] &f[&bADMIN&f] [{rolecolor}{role}&f] &4{user}{reply}: &6{message}'
+
+  # Format applied to in-game chat posted in the Discord admin chat channel.
+  adminchat_channel_format: '{message}'
+
+  # Console-channel log flush interval, in milliseconds (ms).
+  console_flush: 1500
+
+  # How long an in-game /link code remains valid before expiring, in seconds.
+  link_code_ttl: 300
+
+  # Messages posted to the public relay for server and player events.
+  messages:
+    server_startup: '***Server is now online.***'
+    server_shutdown: '***Server is shutting down.***'
+    player_join: '*{player} has joined the game.*'
+    player_leave: '*{player} has left the game.*'
+    reload: '***TotalFreedomMod has been reloaded.***'
+    say: '{message}'
+    ban: |-
+      ***{sender} - Banning {player}***
+      Reason: {reason}
+    kick: |-
+      ***{sender} - Kicking {player}***
+      Reason: {reason}
+    tban: |-
+      ***{sender} - Tempbanning {player} for 5 minutes***
+      Reason: {reason}
+    warn: |-
+      ***{sender} - Warning {player}***
+      Reason: {reason}
+    smite: |-
+      ***{sender} - Smiting {player}***
+      Reason: {reason}
 
 # Announcer
 announcer:
-  enabled: true
+  enabled: false
 
   # Interval between announcements, in seconds.
   interval: 600
@@ -293,6 +710,15 @@ announcer:
     - 'TotalFreedom does not accept any form of donations!'
     - 'Racism, nazism, and sexism are strictly forbidden!'
     - 'Join our Discord server! discord.gg/Zj9aUaR'
+
+# What to display in the admininfo command.
+admininfo:
+  - '&bHow to apply for an admin position on the TotalFreedom Server:'
+  - ' &6- Do not ask for admin in game'
+  - ' &2- Be helpful within the server'
+  - ' &6- Report those breaking the rules'
+  - ' &2- And apply on our forums at the link:'
+  - '&9https://tfreedom.boards.net/thread/4/application-super-admin-status-june'
 
 # Famous players - cannot be banned by username
 famous_players:
@@ -338,23 +764,85 @@ famous_players:
 noadmin_ips:
   - 167.114.97.16
 
+# When true, IP addresses shown by TFM commands are masked (e.g. 192.168.*.*).
+# The permission node `tfm.manage.showips` overrides this.
+mask_ips: false
+
+# When true, ban commands will also cover a /16 range (x.x.*.*) for each IP.
+range_ban_ips: false
+
 # Pet Protect - Prevent tamed pets from being killed.
 petprotect:
   enabled: true
 
-# Logviewer
-logs:
-  url: ''
-  secret: ''
+# When true, non-admins in spectator mode cannot click on other players to attach their camera.
+block_spectator_teleport: true
 
-# Mojang service checker
-service_checker_url: http://status.mojang.com/check
+# LibsDisguises integration
+disguises:
+  # List of forbidden disguise types (case-insensitive)
+  # These disguises will be blocked from being used
+  forbidden_types:
+    - FISHING_HOOK
+    - ITEM_FRAME
+    - ENDER_DRAGON
+    - PLAYER
+    - GIANT
+    - GHAST
+    - MAGMA_CUBE
+    - SLIME
+    - DROPPED_ITEM
+    - ENDER_CRYSTAL
+    - AREA_EFFECT_CLOUD
+    - WITHER
 
 # HTTPD server
 httpd:
-  enabled: true
+  enabled: false
   port: 28966
   public_folder: ./public_html
+  # Folder schematics are served from. Leave blank to auto-detect
+  schem_folder: ''
+  # Whitelist for trusted proxies so that HTTD doesn't have to be served directly.
+  # If using a reverse proxy (e.g. nginx) then you *must* include the proxy IP here,
+  # which for Docker configurations is usually the bridge gateway, e.g. 172.18.0.1.
+  trusted_proxies:
+    - '127.0.0.1'
+    - '::1'
+
+# SSH server
+ssh:
+  enabled: false
+  port: 2222
+  # Authentication modes
+  auth:
+    # Whether to accept a password (ssh.password).
+    password: true
+    # Whether to accept a public key belonging to an admin (ssh_auth_keys/).
+    key: false
+    # Asks for a second factor key using TOTP after public key auth.  Requires `key` to be true.
+    # This does not affect password-based auth (should have `password` as false).
+    totp: false
+
+  password: ""
+  max_failed_attempts: 3
+
+  # When true, SSH commands are sent under a cosmetic wrapper with the admin's username
+  # instead of the `CONSOLE` sender.
+  show_user: false
+
+  # Prefix prepended to the cosmetic name of the sender (e.g. ssh@Prozza).
+  user_prefix: "SSH@"
+
+  # When true, commands dispatched via SSH will run at the permission level of the user's
+  # admin rank rather than the host_senders whitelist (see above).
+  #
+  # The session must be authenticated via public key (see ssh.auth.key).
+  # This is required because the password does not bind a username to an identity.
+  inherit_rank: false
+
+  # Port used by the one-time QR code setup page served by /sshtotp.
+  qr_port: 8765
 
 # Inactivity Auto-Kick (Requires Essentials)
 autokick:
@@ -366,12 +854,34 @@ autokick:
   # Time, in seconds, after which a player should be kicked when inactive
   time: 120
 
-# Players with access to the overlord command
-overlord_ips:
-  - 176.56.237.227
-  - 192.184.86.138
-  - 151.50.73.196
-  - 178.62.117.94
-  - 151.50.49.73
-  - 94.209.158.56
 
+  # Interval in ticks between enforcement periods
+  enforcement_interval: 600
+
+  # Game rules that should be set by default
+  defaults:
+    "minecraft:fire_spread_radius_around_player": 0
+    "minecraft:mob_griefing": false
+    "minecraft:mob_drops": false
+    "minecraft:spawn_mobs": false
+    "minecraft:block_drops": false
+    "minecraft:command_block_output": false
+    "minecraft:natural_health_regeneration": true
+
+  # Game rules that are known to be malicious and will be logged when a player attempts to change them
+  malicious:
+    - "minecraft:random_tick_speed"
+    - "minecraft:max_entity_cramming"
+    - "minecraft:max_snow_accumulation_height"
+    - "minecraft:players_sleeping_percentage"
+    - "minecraft:max_minecart_speed"
+    - "minecraft:max_command_sequence_length"
+    - "minecraft:max_block_modifications"
+
+  # Game rules with limitations on how large or small the numerical value can be. Enforced when attempting to set them
+  caps:
+    "minecraft:random_tick_speed": [0, 3]
+    "minecraft:respawn_radius": [1, 1024]
+    "minecraft:max_snow_accumulation_height": [0, 1024]
+    "minecraft:players_sleeping_percentage": [0, 1024]
+    "minecraft:max_minecart_speed": [0, 1000]

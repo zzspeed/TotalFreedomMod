@@ -1,14 +1,16 @@
 package me.totalfreedom.totalfreedommod.command;
 
+import me.totalfreedom.totalfreedommod.player.PlayerData;
 import me.totalfreedom.totalfreedommod.rank.Rank;
+import me.totalfreedom.totalfreedommod.util.AdventureUtil;
 import me.totalfreedom.totalfreedommod.util.FUtil;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@CommandPermissions(level = Rank.OP, source = SourceType.ONLY_IN_GAME)
+@CommandPermissions(level = Rank.OP, source = SourceType.ONLY_IN_GAME, permission = "tfm.player.nicknyan")
 @CommandParameters(description = "Essentials Interface Command - Nyanify your nickname.", usage = "/<command> <<nick> | off>")
 public class Command_nicknyan extends FreedomCommand
 {
@@ -21,16 +23,19 @@ public class Command_nicknyan extends FreedomCommand
             return false;
         }
 
+        final PlayerData data = plugin.pl.getData(playerSender);
+
         if ("off".equals(args[0]))
         {
-            plugin.esb.setNickname(sender.getName(), null);
+            data.setNickname(null);
             msg("Nickname cleared.");
             return true;
         }
 
-        final String nickPlain = ChatColor.stripColor(FUtil.colorize(args[0].trim()));
+        Component colorized = FUtil.colorize(args[0].trim());
+        final String nickPlain = AdventureUtil.stripColor(AdventureUtil.componentToLegacy(colorized));
 
-        if (!nickPlain.matches("^[a-zA-Z_0-9" + ChatColor.COLOR_CHAR + "]+$"))
+        if (!nickPlain.matches("^[a-zA-Z_0-9\u00A7]+$"))
         {
             msg("That nickname contains invalid characters.");
             return true;
@@ -47,26 +52,22 @@ public class Command_nicknyan extends FreedomCommand
             {
                 continue;
             }
-            if (player.getName().equalsIgnoreCase(nickPlain) || ChatColor.stripColor(player.getDisplayName()).trim().equalsIgnoreCase(nickPlain))
+            if (player.getName().equalsIgnoreCase(nickPlain) || AdventureUtil.stripColor(player.getDisplayName()).trim().equalsIgnoreCase(nickPlain))
             {
                 msg("That nickname is already in use.");
                 return true;
             }
         }
 
-        final StringBuilder newNick = new StringBuilder();
-
+        Component newNick = Component.empty();
         final char[] chars = nickPlain.toCharArray();
         for (char c : chars)
-        {
-            newNick.append(FUtil.randomChatColor()).append(c);
-        }
+            newNick = newNick.append(Component.text(c, FUtil.randomChatColor()));
 
-        newNick.append(ChatColor.WHITE);
+        data.setNickname(newNick);
 
-        plugin.esb.setNickname(sender.getName(), newNick.toString());
-
-        msg("Your nickname is now: " + newNick.toString());
+        msg(Component.text("Your nickname is now: ")
+            .append(newNick));
 
         return true;
     }

@@ -3,10 +3,7 @@ package me.totalfreedom.totalfreedommod.command;
 import me.totalfreedom.totalfreedommod.config.ConfigEntry;
 import me.totalfreedom.totalfreedommod.player.FPlayer;
 import me.totalfreedom.totalfreedommod.rank.Rank;
-import me.totalfreedom.totalfreedommod.util.DepreciationAggregator;
-import me.totalfreedom.totalfreedommod.util.FUtil;
-import org.apache.commons.lang3.StringUtils;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -14,7 +11,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-@CommandPermissions(level = Rank.OP, source = SourceType.ONLY_IN_GAME)
+@CommandPermissions(level = Rank.OP, source = SourceType.ONLY_IN_GAME, permission = "tfm.fun.tossmob")
 @CommandParameters(description = "Throw a mob in the direction you are facing when you left click with a stick.",
         usage = "/<command> <mobtype [speed] | off | list>")
 public class Command_tossmob extends FreedomCommand
@@ -37,7 +34,7 @@ public class Command_tossmob extends FreedomCommand
             if ("off".equals(args[0]))
             {
                 playerData.disableMobThrower();
-                msg("MobThrower is disabled.", ChatColor.GREEN);
+                msg("MobThrower is disabled.", NamedTextColor.GREEN);
                 return true;
             }
 
@@ -48,16 +45,16 @@ public class Command_tossmob extends FreedomCommand
                 {
                     if (loop.isAlive())
                     {
-                        sb.append(" ").append(DepreciationAggregator.getName_EntityType(loop));
+                        sb.append(" ").append(loop.name());
                     }
                 }
-                msg("Supported mobs: " + sb.toString().trim(), ChatColor.GREEN);
+                msg("Supported mobs: " + sb.toString().trim(), NamedTextColor.GREEN);
                 return true;
             }
 
             for (EntityType loopType : EntityType.values())
             {
-                if (DepreciationAggregator.getName_EntityType(loopType).toLowerCase().equalsIgnoreCase(args[0]))
+                if (loopType.name().equalsIgnoreCase(args[0]))
                 {
                     type = loopType;
                     break;
@@ -66,8 +63,8 @@ public class Command_tossmob extends FreedomCommand
 
             if (type == null)
             {
-                msg(args[0] + " is not a supported mob type. Using a pig instead.", ChatColor.RED);
-                msg("By the way, you can type /tossmob list to see all possible mobs.", ChatColor.RED);
+                msg(args[0] + " is not a supported mob type. Using a pig instead.", NamedTextColor.RED);
+                msg("By the way, you can type /tossmob list to see all possible mobs.", NamedTextColor.RED);
                 type = EntityType.PIG;
             }
         }
@@ -94,9 +91,9 @@ public class Command_tossmob extends FreedomCommand
         }
 
         playerData.enableMobThrower(type, speed);
-        msg("MobThrower is enabled. Creature: " + type + " - Speed: " + speed + ".", ChatColor.GREEN);
-        msg("Left click while holding a " + Material.BONE.toString() + " to throw mobs!", ChatColor.GREEN);
-        msg("Type '/tossmob off' to disable.  -By Madgeek1450", ChatColor.GREEN);
+        msg("MobThrower is enabled. Creature: " + type + " - Speed: " + speed + ".", NamedTextColor.GREEN);
+        msg("Left click while holding a " + Material.BONE.toString() + " to throw mobs!", NamedTextColor.GREEN);
+        msg("Type '/tossmob off' to disable.  -By Madgeek1450", NamedTextColor.GREEN);
 
         playerSender.getEquipment().setItemInMainHand(new ItemStack(Material.BONE, 1));
 

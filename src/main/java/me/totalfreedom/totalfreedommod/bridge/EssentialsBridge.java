@@ -1,18 +1,15 @@
 package me.totalfreedom.totalfreedommod.bridge;
 
-import com.earth2me.essentials.Essentials;
-import com.earth2me.essentials.User;
 import me.totalfreedom.totalfreedommod.FreedomService;
 import me.totalfreedom.totalfreedommod.TotalFreedomMod;
 import me.totalfreedom.totalfreedommod.util.FLog;
-import me.totalfreedom.totalfreedommod.util.FUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 public class EssentialsBridge extends FreedomService
 {
 
-    private Essentials essentialsPlugin = null;
+    private Plugin essentialsPlugin = null;
 
     public EssentialsBridge(TotalFreedomMod plugin)
     {
@@ -29,19 +26,16 @@ public class EssentialsBridge extends FreedomService
     {
     }
 
-    public Essentials getEssentialsPlugin()
+    public Plugin getEssentialsPlugin()
     {
         if (essentialsPlugin == null)
         {
             try
             {
                 final Plugin essentials = Bukkit.getServer().getPluginManager().getPlugin("Essentials");
-                if (essentials != null)
+                if (essentials != null && essentials.isEnabled())
                 {
-                    if (essentials instanceof Essentials)
-                    {
-                        essentialsPlugin = (Essentials) essentials;
-                    }
+                    essentialsPlugin = essentials;
                 }
             }
             catch (Exception ex)
@@ -52,48 +46,18 @@ public class EssentialsBridge extends FreedomService
         return essentialsPlugin;
     }
 
-    public User getEssentialsUser(String username)
+    private Object getEssentialsUser(String username)
     {
         try
         {
-            final Essentials essentials = getEssentialsPlugin();
+            final Plugin essentials = getEssentialsPlugin();
             if (essentials != null)
             {
-                return essentials.getUserMap().getUser(username);
-            }
-        }
-        catch (Exception ex)
-        {
-            FLog.severe(ex);
-        }
-        return null;
-    }
-
-    public void setNickname(String username, String nickname)
-    {
-        try
-        {
-            final User user = getEssentialsUser(username);
-            if (user != null)
-            {
-                user.setNickname(nickname);
-                user.setDisplayNick();
-            }
-        }
-        catch (Exception ex)
-        {
-            FLog.severe(ex);
-        }
-    }
-
-    public String getNickname(String username)
-    {
-        try
-        {
-            final User user = getEssentialsUser(username);
-            if (user != null)
-            {
-                return user.getNickname();
+                Object userMap = essentials.getClass().getMethod("getUserMap").invoke(essentials);
+                if (userMap != null)
+                {
+                    return userMap.getClass().getMethod("getUser", String.class).invoke(userMap, username);
+                }
             }
         }
         catch (Exception ex)
@@ -107,10 +71,16 @@ public class EssentialsBridge extends FreedomService
     {
         try
         {
-            final User user = getEssentialsUser(username);
+            final Object user = getEssentialsUser(username);
             if (user != null)
             {
-                return FUtil.<Long>getField(user, "lastActivity"); // This is weird
+                java.lang.reflect.Field field = user.getClass().getDeclaredField("lastActivity");
+                field.setAccessible(true);
+                Object value = field.get(user);
+                if (value instanceof Long)
+                {
+                    return (Long) value;
+                }
             }
         }
         catch (Exception ex)
@@ -120,11 +90,32 @@ public class EssentialsBridge extends FreedomService
         return 0L;
     }
 
+    public boolean isAfk(String username)
+    {
+        try
+        {
+            final Object user = getEssentialsUser(username);
+            if (user != null)
+            {
+                Object result = user.getClass().getMethod("isAfk").invoke(user);
+                if (result instanceof Boolean)
+                {
+                    return (Boolean) result;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            FLog.severe(ex);
+        }
+        return false;
+    }
+
     public boolean isEssentialsEnabled()
     {
         try
         {
-            final Essentials essentials = getEssentialsPlugin();
+            final Plugin essentials = getEssentialsPlugin();
             if (essentials != null)
             {
                 return essentials.isEnabled();
